@@ -105,9 +105,9 @@
   })();
 
   // ----- Asset loading -----
-  // Over-the-shoulder back view of Bloo for the runner crowd
   const ASSET_LIST = {
-    bloo:  'sprites/character/bloo_back.png',
+    bloo:     'sprites/character/bloo_back.png',
+    fireball: 'sprites/effects/fireball.png',
   };
   const ASSETS = {};
   let assetsLoaded = 0, assetsTotal = Object.keys(ASSET_LIST).length;
@@ -171,8 +171,9 @@
   const LEADER_Y = H - 180; // where the crowd is drawn
 
   // Camera distance traveled
-  let camY = 0;             // world Y at top of canvas (decreases over time)
-  let scrollSpeed = 3.8;    // px/frame, increases over time (was 3.2)
+  let camY = 0;
+  let scrollSpeed = 4.4;    // base scroll (was 3.8) — runners feel uncomfortable
+  const CROWD_CAP = 80;     // was 200 — multipliers can't trivially snowball
   let distance = 0;         // total distance traveled
   let bestDistance = 0;
   try { bestDistance = parseInt(localStorage.getItem('bloo.runner.best') || '0', 10); } catch(_) {}
@@ -194,6 +195,10 @@
   const bullets = [];
   let fireCooldown = 0;
   const FIRE_INTERVAL = 8; // base frames between volleys
+  const enemyShots = []; // projectiles fired by casters and bosses
+  function spawnEnemyShot(x, y, vx, vy, big) {
+    enemyShots.push({ x, y, vx, vy, life: 240, big: !!big });
+  }
 
   // Gates — span across the lane horizontally, two halves with different effects
   const gates = [];
@@ -205,7 +210,7 @@
 
   // Boss
   let boss = null;
-  let nextBossDistance = 1100;
+  let nextBossDistance = 800;
 
   // Particles
   const particles = [];
@@ -220,11 +225,12 @@
 
   function reset() {
     clones.length = 0; bullets.length = 0; gates.length = 0; enemies.length = 0; particles.length = 0;
+    enemyShots.length = 0;
     boss = null;
     leaderX = LANE_X + LANE_W / 2;
     spawnClones(3);
-    camY = 0; distance = 0; scrollSpeed = 3.2;
-    nextGateY = -200; nextEnemyY = -600; nextBossDistance = 1500;
+    camY = 0; distance = 0; scrollSpeed = 4.4;
+    nextGateY = -200; nextEnemyY = -600; nextBossDistance = 800;
     gameOver = false; gameOverT = 0; steerInput = 0;
   }
   reset();
@@ -252,22 +258,26 @@
   }
   function pickGateOp(forcePositive) {
     const r = Math.random();
-    // Bad halves now ~35% of the time (was 20%) to make gate choices matter more
-    if (forcePositive || r < 0.42) {
-      // Multiplier ×2..×3
-      const m = 2 + Math.floor(Math.random() * 2);
+    // Late-game gates have more bad halves: 25% → 50% by 2000m
+    const badBias = Math.min(0.25, distance / 8000);  // up to +25%
+    const goodCutoff = 0.40 - badBias;
+    const addCutoff  = 0.60 - badBias;
+    const subCutoff  = 0.85;
+    if (forcePositive || r < goodCutoff) {
+      // Multiplier — now mostly ×2 (rare ×3) to keep growth manageable
+      const m = Math.random() < 0.85 ? 2 : 3;
       return { type: 'mul', value: m, label: '×' + m, color: '#5fe87a', score: 1 };
-    } else if (r < 0.65) {
-      // Additive +3..+10
-      const a = 3 + Math.floor(Math.random() * 8);
+    } else if (r < addCutoff) {
+      // Additive +2..+8 (was +3..+10) — smaller bonuses
+      const a = 2 + Math.floor(Math.random() * 7);
       return { type: 'add', value: a, label: '+' + a, color: '#9cd6ff', score: 1 };
-    } else if (r < 0.85) {
-      // Subtract -5..-15
-      const a = 5 + Math.floor(Math.random() * 11);
+    } else if (r < subCutoff) {
+      // Subtract −6..−20 — bigger losses
+      const a = 6 + Math.floor(Math.random() * 15);
       return { type: 'sub', value: a, label: '−' + a, color: '#ff5c8a', score: -1 };
     } else {
-      // Divide ÷2 or ÷3
-      const d = 2 + Math.floor(Math.random() * 2);
+      // Divide ÷2..÷4
+      const d = 2 + Math.floor(Math.random() * 3);
       return { type: 'div', value: d, label: '÷' + d, color: '#ff5c8a', score: -1 };
     }
   }
@@ -278,7 +288,7 @@
     else if (op.type === 'add') target = before + op.value;
     else if (op.type === 'sub') target = Math.max(0, before - op.value);
     else if (op.type === 'div') target = Math.max(1, Math.floor(before / op.value));
-    target = Math.min(target, 200); // cap to avoid frame drops
+    target = Math.min(target, CROWD_CAP); // hard cap stops trivial snowballing
 
     if (target > before) {
       spawnClones(target - before);
@@ -295,21 +305,33 @@
   }
 
   function spawnEnemy() {
-    // Spawn within the lane at the spawn screen y (top of viewport ≈ y=0)
     const spawnLane = laneAtY(0);
-    const x = spawnLane.x + 20 + Math.random() * (spawnLane.w - 40);
-    enemies.push({
-      worldY: nextEnemyY,
-      x, w: 32, h: 36,
-      hp: 1 + Math.floor(distance / 450),         // scales faster (was 600)
-      type: 'shadow',
-    });
-    nextEnemyY -= 170 + Math.random() * 140;       // closer spacing (was 220-400)
+    // Sometimes spawn a row of 2-3 enemies side by side to overwhelm the crowd
+    const groupSize = Math.random() < Math.min(0.55, 0.2 + distance / 4000) ? (2 + Math.floor(Math.random() * 2)) : 1;
+    const baseHp = 1 + Math.floor(distance / 350);
+    for (let i = 0; i < groupSize; i++) {
+      // Choose enemy type — caster type that fires fireballs appears past 800m
+      const wantCaster = distance > 800 && Math.random() < 0.18;
+      const type = wantCaster ? 'caster' : 'shadow';
+      const x = spawnLane.x + 20 + (groupSize === 1
+        ? Math.random() * (spawnLane.w - 40)
+        : (i + 0.5) * (spawnLane.w - 40) / groupSize);
+      enemies.push({
+        worldY: nextEnemyY - i * 6,
+        x, w: type === 'caster' ? 30 : 32, h: type === 'caster' ? 34 : 36,
+        hp: type === 'caster' ? Math.max(2, baseHp) : baseHp,
+        type, fireT: 30 + Math.random() * 30,
+      });
+    }
+    // Tighter spacing as distance grows
+    const minGap = Math.max(80, 150 - distance / 40);
+    nextEnemyY -= minGap + Math.random() * 80;
   }
 
+  // (enemyShots and spawnEnemyShot declared earlier near bullets)
+
   function spawnBoss() {
-    const hp = 130 + Math.floor(distance / 350) * 40;  // tougher (was 80, +30 per 400m)
-    // Boss sits at the top of the lane, sized to fit the narrow upper trapezoid
+    const hp = 220 + Math.floor(distance / 250) * 50;  // significantly tougher
     const topLane = laneAtY(H * 0.18);
     boss = {
       worldY: camY - 90,
@@ -317,8 +339,7 @@
       w: topLane.w - 20,
       h: 70,
       x: topLane.x + 10,
-      defeated: false,
-      defeatT: 0,
+      defeated: false, defeatT: 0,
     };
   }
 
@@ -333,8 +354,8 @@
       else return;
     }
 
-    // Speed ramp — base 3.8, climbs to 8.0 by 3000m (was capped at 6.2)
-    scrollSpeed = 3.8 + Math.min(4.2, distance / 800);
+    // Speed ramp — base 4.4, climbs to 9.5 by 2500m. Hits hard.
+    scrollSpeed = 4.4 + Math.min(5.1, distance / 600);
 
     // Boss freezes scroll
     const scrolling = !boss || boss.defeated;
@@ -374,7 +395,7 @@
     while (nextEnemyY > camY - H - 50 && !boss) spawnEnemy();
     if (!boss && distance > nextBossDistance) {
       spawnBoss();
-      nextBossDistance = distance + 900 + Math.random() * 400;  // bosses every ~1000m (was 1500m)
+      nextBossDistance = distance + 700 + Math.random() * 300;  // bosses every ~800m
     }
 
     // Auto-fire from clones (more clones → more bullets / faster)
@@ -404,17 +425,31 @@
       if (b.y < -20) bullets.splice(i, 1);
     }
 
-    // Update enemies — they descend toward leader at their own speed,
-    // PLUS the world scrolls when not fighting boss
+    // Update enemies — they always descend toward the player, even faster during boss
     for (const e of enemies) {
-      e.worldY += scrolling ? 0 : 1.6;
+      const baseDescent = scrolling ? 0.8 : 2.4;     // even when scrolling, enemies push forward
+      e.worldY += baseDescent;
       e.screenY = e.worldY - camY;
-      // Gentle drift toward leader
-      if (e.x < leaderX - 1) e.x += 0.6;
-      else if (e.x > leaderX + 1) e.x -= 0.6;
-      // Clamp inside the lane at this screen y
+      // Drift toward leader
+      const drift = e.type === 'caster' ? 0.4 : 0.8;
+      if (e.x < leaderX - 1) e.x += drift;
+      else if (e.x > leaderX + 1) e.x -= drift;
+      // Clamp inside the lane
       const lane = laneAtY(e.screenY);
       e.x = Math.max(lane.x + 14, Math.min(lane.right - 14, e.x));
+      // Casters fire shots periodically
+      if (e.type === 'caster') {
+        e.fireT--;
+        if (e.fireT <= 0 && e.screenY > 30 && e.screenY < H - 100) {
+          // Aim at the leader
+          const dx = leaderX - e.x;
+          const dy = LEADER_Y - e.screenY;
+          const d = Math.max(40, Math.hypot(dx, dy));
+          const sp = 5;
+          spawnEnemyShot(e.x, e.screenY + 10, sp * dx / d, sp * dy / d, false);
+          e.fireT = 90 + Math.random() * 40;
+        }
+      }
     }
 
     // Bullet vs enemy collision
@@ -477,17 +512,27 @@
       }
       for (let i = bullets.length - 1; i >= 0; i--) if (bullets[i].dead) bullets.splice(i, 1);
 
-      // Boss spawns minions occasionally — must be slow enough that the crowd can win
+      // Boss attacks: minion spawns + targeted fireballs
       boss._t = (boss._t || 0) + 1;
-      if (boss._t % 140 === 0) {
+      // Spawn a minion every 70 frames (was 140)
+      if (boss._t % 70 === 0) {
         const lane = Math.floor(Math.random() * 3);
         enemies.push({
           worldY: boss.worldY + boss.h + 10,
           x: boss.x + 30 + lane * (boss.w - 60) / 2,
-          w: 26, h: 26,
-          hp: 1,
+          w: 28, h: 28,
+          hp: 1 + Math.floor(distance / 1500),
           type: 'shadow',
+          fireT: 0,
         });
+      }
+      // Fire a big fireball aimed at the leader every ~110 frames
+      if (boss._t % 110 === 50) {
+        const dx = leaderX - (boss.x + boss.w/2);
+        const dy = LEADER_Y - (boss.screenY + boss.h);
+        const d = Math.max(60, Math.hypot(dx, dy));
+        const sp = 4;
+        spawnEnemyShot(boss.x + boss.w/2, boss.screenY + boss.h, sp * dx / d, sp * dy / d, true);
       }
 
       if (boss.hp <= 0) {
@@ -500,6 +545,26 @@
       boss.defeatT++;
       if (boss.defeatT > 80) boss = null;
     }
+
+    // Enemy projectiles — fly in a straight line, kill clones on hit
+    for (const s of enemyShots) {
+      s.x += s.vx; s.y += s.vy; s.life--;
+      // Hit a clone?
+      for (let i = clones.length - 1; i >= 0; i--) {
+        const c = clones[i];
+        const dx = c.x - s.x, dy = c.y - s.y;
+        const r = s.big ? 22 : 14;
+        if (dx*dx + dy*dy < r*r) {
+          // Big shots kill 2 clones
+          killClone(i);
+          if (s.big && clones.length > 0) killClone(clones.length - 1);
+          burst(s.x, s.y, '#ff5cb8', 8);
+          s.life = 0;
+          break;
+        }
+      }
+    }
+    for (let i = enemyShots.length - 1; i >= 0; i--) if (enemyShots[i].life <= 0 || enemyShots[i].y > H + 40) enemyShots.splice(i, 1);
 
     // Particles
     for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life--; }
@@ -736,6 +801,29 @@
     ctx.shadowBlur = 0;
   }
 
+  function drawEnemyShots() {
+    for (const s of enemyShots) {
+      // Use the painted fireball sprite when available; fall back to glowing pink dot
+      if (ASSETS.fireball && ASSETS.fireball.width) {
+        const w = s.big ? 56 : 36, h = w * 0.55;
+        // Rotate so the trail points opposite the direction of motion
+        const ang = Math.atan2(s.vy, s.vx);
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(ang);
+        ctx.shadowColor = '#ff3aa8'; ctx.shadowBlur = s.big ? 20 : 12;
+        ctx.drawImage(ASSETS.fireball, -w/2, -h/2, w, h);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      } else {
+        ctx.shadowColor = '#ff3aa8'; ctx.shadowBlur = 14;
+        ctx.fillStyle = '#ff5cb8';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.big ? 10 : 6, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+
   function drawParticles() {
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, p.life / 24);
@@ -828,6 +916,7 @@
     drawBoss();
     drawClones();
     drawBullets();
+    drawEnemyShots();
     drawParticles();
     drawHUD();
     drawTitle();
