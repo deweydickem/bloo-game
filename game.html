@@ -76,13 +76,18 @@
 
   // ----- World -----
   const TILE = 40;
-  const GRAVITY = 0.7;
+  const GRAVITY = 0.45;        // floatier: was 0.7
+  const APEX_GRAVITY = 0.22;   // gentler near jump apex (hang time)
+  const FALL_GRAVITY = 0.55;   // a touch faster on the way down so it still feels controllable
+  const MAX_FALL = 11;         // cap fall speed (was 16)
   const MOVE_ACC = 0.6;
   const RUN_ACC  = 0.9;
   const FRICTION = 0.82;
   const MAX_WALK = 4.2;
   const MAX_RUN  = 7.0;
-  const JUMP_V   = -13.5;
+  const JUMP_V   = -11.5;      // first jump (was -13.5) — lower since gravity is lower
+  const JUMP2_V  = -10.0;      // double jump — slightly weaker
+  const MAX_JUMPS = 2;         // double jump enabled
 
   // Level layout. '#'=ground, '='=brick, '?'=question, 'P'=pillar, 'F'=portal,
   // 'c'=coin, 'g'=spiky walker, 'd'=floating devil. ' '=empty, 'S'=start
@@ -159,12 +164,15 @@
     won: false,
     dead: false,
     deathT: 0,
+    jumpsUsed: 0,           // double-jump tracker (resets on landing)
+    jumpKeyHeld: false,     // edge-trigger so holding doesn't auto-bounce
   };
   function resetPlayer() {
     player.x = startX; player.y = startY;
     player.vx = 0; player.vy = 0;
     player.big = false; player.invuln = 60;
     player.dead = false; player.deathT = 0; player.won = false;
+    player.jumpsUsed = 0; player.jumpKeyHeld = false;
   }
 
   const powerups = [];
@@ -282,23 +290,60 @@
     if (Math.abs(player.vx) < 0.05) player.vx = 0;
     player.vx = Math.max(-maxV, Math.min(maxV, player.vx));
 
-    if (jump && player.onGround) {
-      player.vy = JUMP_V; player.onGround = false;
-      // jump dust — both pixel particles AND a sprite dust cloud
+    // Edge-triggered jump: only fire when the key transitions from up to down
+    const jumpPressed = jump && !player.jumpKeyHeld;
+    player.jumpKeyHeld = jump;
+
+    if (jumpPressed && player.jumpsUsed < MAX_JUMPS) {
+      // Reset jumps if we were on ground (handles coyote-jump case naturally)
+      const isFirstJump = player.onGround || player.jumpsUsed === 0;
+      player.vy = isFirstJump ? JUMP_V : JUMP2_V;
+      player.onGround = false;
+      player.jumpsUsed = isFirstJump ? 1 : 2;
+
+      // jump dust at feet
       for (let i=0;i<6;i++) particles.push({x: player.x + player.w/2 + (Math.random()-.5)*8, y: player.y + player.h - 2, vx:(Math.random()-.5)*2, vy:-Math.random()*1.5, life: 18, color:'rgba(180,180,220,0.7)'});
       particles.push({x: player.x + player.w/2, y: player.y + player.h - 6, vx: 0, vy: 0, life: 16, sprite: 'dust', size: 36});
       particles.push({x: player.x + player.w/2 - 14, y: player.y + player.h - 4, vx: -0.6, vy: -0.3, life: 14, sprite: 'dust', size: 28});
       particles.push({x: player.x + player.w/2 + 14, y: player.y + player.h - 4, vx: 0.6, vy: -0.3, life: 14, sprite: 'dust', size: 28});
-    }
-    if (!jump && player.vy < -6) player.vy = -6;
 
-    player.vy += GRAVITY;
-    if (player.vy > 16) player.vy = 16;
+      // Extra flourish for the double jump: pink sparkle puff
+      if (!isFirstJump) {
+        for (let i = 0; i < 12; i++) {
+          const ang = (i / 12) * Math.PI * 2;
+          particles.push({
+            x: player.x + player.w/2 + Math.cos(ang) * 4,
+            y: player.y + player.h - 8,
+            vx: Math.cos(ang) * 2.4,
+            vy: Math.sin(ang) * 2.4 - 0.5,
+            life: 26,
+            color: i % 2 === 0 ? '#ff6acb' : '#9cd6ff'
+          });
+        }
+      }
+    }
+    // Variable jump height: cut upward velocity short if key released early
+    if (!jump && player.vy < -4) player.vy = -4;
+
+    // Apex hang: gentler gravity near the top of a jump for that whimsical feel
+    let g;
+    if (player.vy > 0)            g = FALL_GRAVITY;
+    else if (player.vy > -2.5)    g = APEX_GRAVITY; // hang time band
+    else                          g = GRAVITY;
+    player.vy += g;
+    if (player.vy > MAX_FALL) player.vy = MAX_FALL;
 
     player.h = player.big ? 64 : 44;
 
     moveAndCollide(player, player.vx, 0);
+    const wasInAir = !player.onGround;
     moveAndCollide(player, 0, player.vy);
+    // landed this frame → refresh double jump
+    if (wasInAir && player.onGround) {
+      player.jumpsUsed = 0;
+      // landing puff
+      particles.push({x: player.x + player.w/2, y: player.y + player.h - 6, vx: 0, vy: 0, life: 14, sprite: 'dust', size: 30});
+    }
 
     if (player.y > LEVEL_H + 200) killPlayer();
     if (player.invuln > 0) player.invuln--;
