@@ -59,6 +59,24 @@
   @media (hover: none) and (pointer: coarse) {
     #title { display: none; }
   }
+  /* Mute button — always visible, top-right */
+  #btn-mute {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(20, 8, 40, 0.55);
+    border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; pointer-events: auto;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    user-select: none; -webkit-user-select: none;
+    z-index: 10;
+    transition: transform .08s ease, background .08s ease;
+  }
+  #btn-mute:active { transform: scale(0.92); background: rgba(255, 92, 184, 0.35); }
 </style>
 </head>
 <body>
@@ -72,6 +90,7 @@
   <div id="btn-right" class="tbtn" data-key="ArrowRight">›</div>
   <div id="btn-jump"  class="tbtn" data-key="Space">↑</div>
 </div>
+<div id="btn-mute" title="Mute (M)" aria-label="Toggle sound">🔊</div>
 <script>
 (() => {
   const canvas = document.getElementById('c');
@@ -114,6 +133,130 @@
       b.addEventListener('mouseleave', release);
     }
   } catch (e) { /* ignore — non-browser env */ }
+
+  // ----- Mute button + M hotkey -----
+  try {
+    const muteBtn = document.getElementById('btn-mute');
+    function refreshMuteIcon() { if (muteBtn) muteBtn.textContent = Audio.isMuted() ? '🔇' : '🔊'; }
+    refreshMuteIcon();
+    if (muteBtn && muteBtn.addEventListener) {
+      muteBtn.addEventListener('click', (e) => { e.preventDefault(); Audio.ensure(); Audio.toggleMute(); refreshMuteIcon(); });
+      muteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); Audio.ensure(); Audio.toggleMute(); refreshMuteIcon(); }, { passive: false });
+    }
+    if (typeof addEventListener !== 'undefined') {
+      addEventListener('keydown', (e) => {
+        if (e.code === 'KeyM') { Audio.toggleMute(); refreshMuteIcon(); }
+      });
+    }
+  } catch (e) { /* ignore — non-browser env */ }
+
+  // ============ AUDIO ENGINE (procedural Web Audio SFX) ============
+  const Audio = (() => {
+    let ctx = null, master = null, muted = false;
+    try { muted = localStorage.getItem('bloo.muted') === '1'; } catch(_) {}
+
+    function ensure() {
+      if (typeof window === 'undefined') return null;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!ctx) {
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = muted ? 0 : 0.55;
+        master.connect(ctx.destination);
+      }
+      // Resume if suspended (autoplay policy)
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+
+    // Unlock on first user gesture
+    function unlock() { ensure(); }
+    if (typeof addEventListener !== 'undefined') {
+      addEventListener('keydown',    unlock, { once: true });
+      addEventListener('pointerdown', unlock, { once: true });
+      addEventListener('touchstart', unlock, { once: true });
+    }
+
+    function setMuted(m) {
+      muted = m;
+      if (master) master.gain.value = muted ? 0 : 0.55;
+      try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_) {}
+    }
+    function toggleMute() { setMuted(!muted); return muted; }
+    function isMuted() { return muted; }
+
+    // ---- Synthesis helpers ----
+    // tone(freq, dur, type, opts) — sine/triangle/square/sawtooth with ADSR envelope
+    function tone(freq, dur, type, opts = {}) {
+      const c = ensure(); if (!c || muted) return;
+      const t0 = c.currentTime;
+      const osc = c.createOscillator();
+      const g   = c.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      if (opts.freqEnd) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(40, opts.freqEnd), t0 + dur);
+      }
+      const peak = opts.gain ?? 0.25;
+      const atk = opts.atk ?? 0.005;
+      const rel = opts.rel ?? Math.min(0.4, dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak, t0 + atk);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g).connect(master);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    }
+
+    // chord/arpeggio of frequencies played one after another (or together if step=0)
+    function arp(freqs, stepDur, type, opts = {}) {
+      const c = ensure(); if (!c || muted) return;
+      freqs.forEach((f, i) => {
+        setTimeout(() => tone(f, opts.noteDur || stepDur * 1.4, type, opts), i * stepDur * 1000);
+      });
+    }
+
+    // noise burst with optional bandpass — for whooshes/thuds
+    function noise(dur, opts = {}) {
+      const c = ensure(); if (!c || muted) return;
+      const t0 = c.currentTime;
+      const len = Math.max(1, Math.floor(c.sampleRate * dur));
+      const buf = c.createBuffer(1, len, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1);
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      const filt = c.createBiquadFilter();
+      filt.type = opts.filterType || 'bandpass';
+      filt.frequency.setValueAtTime(opts.freq || 800, t0);
+      if (opts.freqEnd) filt.frequency.exponentialRampToValueAtTime(opts.freqEnd, t0 + dur);
+      filt.Q.value = opts.Q ?? 1.0;
+      const g = c.createGain();
+      const peak = opts.gain ?? 0.18;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak, t0 + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(filt).connect(g).connect(master);
+      src.start(t0);
+      src.stop(t0 + dur + 0.05);
+    }
+
+    // ---- Game-specific sounds ----
+    return {
+      ensure, setMuted, toggleMute, isMuted,
+      jump()        { tone(420, 0.16, 'triangle', { freqEnd: 700, gain: 0.18, rel: 0.14 }); noise(0.08, { freq: 1200, freqEnd: 600, gain: 0.05 }); },
+      doubleJump()  { arp([660, 880, 1320], 0.06, 'triangle', { gain: 0.18, noteDur: 0.18 }); },
+      land()        { tone(120, 0.10, 'triangle', { gain: 0.14, rel: 0.08 }); noise(0.07, { freq: 220, gain: 0.07 }); },
+      coin()        { tone(988, 0.08, 'sine', { gain: 0.18 }); setTimeout(() => tone(1318, 0.16, 'sine', { gain: 0.16 }), 50); },
+      block()       { tone(180, 0.09, 'square', { gain: 0.14, rel: 0.07 }); noise(0.05, { freq: 400, gain: 0.04 }); },
+      powerup()     { arp([523, 659, 784, 1047], 0.07, 'triangle', { gain: 0.18, noteDur: 0.20 }); },
+      enemyStomp()  { noise(0.18, { freq: 200, freqEnd: 80, gain: 0.16, Q: 0.6 }); tone(160, 0.08, 'square', { gain: 0.10 }); },
+      hurt()        { tone(330, 0.18, 'sawtooth', { freqEnd: 180, gain: 0.16 }); tone(520, 0.18, 'square', { freqEnd: 240, gain: 0.06 }); },
+      death()       { arp([440, 370, 311, 247, 196], 0.10, 'triangle', { gain: 0.18, noteDur: 0.22 }); },
+      portal()      { arp([523, 659, 784, 1047, 1319, 1568], 0.09, 'sine', { gain: 0.20, noteDur: 0.30 }); setTimeout(() => arp([1047, 1319, 1568], 0.08, 'triangle', { gain: 0.14, noteDur: 0.30 }), 180); },
+    };
+  })();
 
   // ----- Asset loading -----
   const ASSET_LIST = {
@@ -308,27 +451,24 @@
                 b.hit = true;
                 if (b.contains === 'crystal') {
                   powerups.push({x:b.x+6, y:b.y - TILE, w:28, h:28, vx:1.5, vy:0, type:'crystal', emerging:20});
+                  Audio.block();
                 } else {
-                  // Mario-style coin pop: coin shoots up out of the block, arcs, falls
                   spawnPopCoin(b.x + TILE/2, b.y);
+                  Audio.block();
                 }
-                // bump animation
                 b.bumpT = 8;
               } else if (s.type === 'brick') {
-                // Bump animation either way
                 b.bumpT = 8;
-                // Any coins sitting on top of this brick now pop up
+                Audio.block();
                 let popped = 0;
                 for (const c of coins) {
                   if (c.taken) continue;
-                  // coin center is within brick width and one tile above the brick
                   if (Math.abs(c.x - (b.x + TILE/2)) < TILE/2 && Math.abs(c.y - (b.y - TILE/2)) < 22) {
                     c.taken = true;
                     spawnPopCoin(c.x, c.y);
                     popped++;
                   }
                 }
-                // Big player breaks the brick if there were no coins on top
                 if (player.big && popped === 0 && !b.hit) {
                   b.hit = true; burst(b.x+TILE/2, b.y, '#5a3a8a');
                   const idx = solids.indexOf(s); if (idx>=0) solids.splice(idx,1);
@@ -384,8 +524,9 @@
       player.onGround = false;
       player.jumpsUsed = isFirstJump ? 1 : 2;
 
-      // Double jump: clean expanding magic ring at the feet — no particles
-      if (!isFirstJump) {
+      if (isFirstJump) Audio.jump();
+      else {
+        Audio.doubleJump();
         rings.push({
           x: player.x + player.w/2,
           y: player.y + player.h - 4,
@@ -408,10 +549,13 @@
 
     moveAndCollide(player, player.vx, 0);
     const wasInAir = !player.onGround;
+    const vyBeforeMove = player.vy;
     moveAndCollide(player, 0, player.vy);
-    // landed this frame → refresh double jump (no FX)
+    // landed this frame → refresh double jump
     if (wasInAir && player.onGround) {
       player.jumpsUsed = 0;
+      // landing sound only for substantial drops (skip if barely falling)
+      if (vyBeforeMove > 3) Audio.land();
     }
 
     if (player.y > LEVEL_H + 200) killPlayer();
@@ -424,7 +568,7 @@
       const pcx = player.x + player.w/2, pcy = player.y + player.h/2;
       const dx = pcx - c.x, dy = pcy - c.y;
       if (dx*dx + dy*dy < (c.r + 16)**2) {
-        c.taken = true; player.coins++; burst(c.x, c.y, '#ffd54a');
+        c.taken = true; player.coins++; burst(c.x, c.y, '#ffd54a'); Audio.coin();
       }
     }
 
@@ -451,16 +595,8 @@
         moveAndCollide(e, 0, e.vy);
       }
       if (rectsOverlap(player, e)) {
-        // spiky walker can't be stomped — touching = damage
-        const stompable = e.type === 'devil' ? false : false; // both unstompable (spikes)
-        if (player.vy > 1 && (player.y + player.h) - e.y < 18 && !stompable) {
-          // bounce off without dying if attacking from above on devil? no — both hurt
-          if (player.invuln <= 0) {
-            if (player.big) { player.big = false; player.invuln = 90; player.vy = -6; }
-            else killPlayer();
-          }
-        } else if (player.invuln <= 0) {
-          if (player.big) { player.big = false; player.invuln = 90; }
+        if (player.invuln <= 0) {
+          if (player.big) { player.big = false; player.invuln = 90; player.vy = -6; Audio.hurt(); }
           else killPlayer();
         }
       }
@@ -478,12 +614,14 @@
         if (!player.big) { player.big = true; player.y -= 20; }
         else player.coins += 1;
         burst(p.x+p.w/2, p.y, '#ff5cb8');
+        Audio.powerup();
       }
     }
     for (let i = powerups.length-1; i >= 0; i--) if (powerups[i].taken || powerups[i].y > LEVEL_H+100) powerups.splice(i,1);
 
     // Portal collision
     if (Math.abs(player.x + player.w/2 - portalX) < 28) {
+      if (!player.won) Audio.portal();
       player.won = true;
       showMsg('YOU REACHED THE PORTAL! Crystals: ' + player.coins + ' — press R to play again');
     }
@@ -539,6 +677,7 @@
     if (player.dead) return;
     player.dead = true; player.deathT = 0; player.vy = -10; player.vx = 0;
     burst(player.x+player.w/2, player.y+player.h/2, '#88ccff');
+    Audio.death();
   }
 
   // ============ DRAWING ============
