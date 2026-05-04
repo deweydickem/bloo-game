@@ -178,6 +178,7 @@
   const powerups = [];
   const particles = [];
   const popCoins = []; // Mario-style popping coins from bumped blocks
+  const rings = [];    // expanding magic rings (e.g., double-jump flourish)
   function spawnPopCoin(x, y) {
     popCoins.push({ x, y, vx: (Math.random()-.5)*0.6, vy: -10, t: 0, life: 60, awarded: false });
   }
@@ -295,31 +296,18 @@
     player.jumpKeyHeld = jump;
 
     if (jumpPressed && player.jumpsUsed < MAX_JUMPS) {
-      // Reset jumps if we were on ground (handles coyote-jump case naturally)
       const isFirstJump = player.onGround || player.jumpsUsed === 0;
       player.vy = isFirstJump ? JUMP_V : JUMP2_V;
       player.onGround = false;
       player.jumpsUsed = isFirstJump ? 1 : 2;
 
-      // jump dust at feet
-      for (let i=0;i<6;i++) particles.push({x: player.x + player.w/2 + (Math.random()-.5)*8, y: player.y + player.h - 2, vx:(Math.random()-.5)*2, vy:-Math.random()*1.5, life: 18, color:'rgba(180,180,220,0.7)'});
-      particles.push({x: player.x + player.w/2, y: player.y + player.h - 6, vx: 0, vy: 0, life: 16, sprite: 'dust', size: 36});
-      particles.push({x: player.x + player.w/2 - 14, y: player.y + player.h - 4, vx: -0.6, vy: -0.3, life: 14, sprite: 'dust', size: 28});
-      particles.push({x: player.x + player.w/2 + 14, y: player.y + player.h - 4, vx: 0.6, vy: -0.3, life: 14, sprite: 'dust', size: 28});
-
-      // Extra flourish for the double jump: pink sparkle puff
+      // Double jump: clean expanding magic ring at the feet — no particles
       if (!isFirstJump) {
-        for (let i = 0; i < 12; i++) {
-          const ang = (i / 12) * Math.PI * 2;
-          particles.push({
-            x: player.x + player.w/2 + Math.cos(ang) * 4,
-            y: player.y + player.h - 8,
-            vx: Math.cos(ang) * 2.4,
-            vy: Math.sin(ang) * 2.4 - 0.5,
-            life: 26,
-            color: i % 2 === 0 ? '#ff6acb' : '#9cd6ff'
-          });
-        }
+        rings.push({
+          x: player.x + player.w/2,
+          y: player.y + player.h - 4,
+          r: 4, life: 18, maxLife: 18, color: '#ff6acb'
+        });
       }
     }
     // Variable jump height: cut upward velocity short if key released early
@@ -338,11 +326,9 @@
     moveAndCollide(player, player.vx, 0);
     const wasInAir = !player.onGround;
     moveAndCollide(player, 0, player.vy);
-    // landed this frame → refresh double jump
+    // landed this frame → refresh double jump (no FX)
     if (wasInAir && player.onGround) {
       player.jumpsUsed = 0;
-      // landing puff
-      particles.push({x: player.x + player.w/2, y: player.y + player.h - 6, vx: 0, vy: 0, life: 14, sprite: 'dust', size: 30});
     }
 
     if (player.y > LEVEL_H + 200) killPlayer();
@@ -443,6 +429,10 @@
 
     // Block bump animations
     for (const b of blocks) if (b.bumpT) b.bumpT--;
+
+    // Expanding rings
+    for (const r of rings) { r.r += 2.6; r.life--; }
+    for (let i = rings.length - 1; i >= 0; i--) if (rings[i].life <= 0) rings.splice(i, 1);
 
     // Ambient particles
     for (const a of ambient) {
@@ -933,6 +923,21 @@
     ctx.restore();
   }
 
+  function drawRings() {
+    for (const r of rings) {
+      const alpha = Math.max(0, r.life / r.maxLife) * 0.7;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 2.5 * (r.life / r.maxLife);
+      ctx.shadowColor = r.color; ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.ellipse(r.x - camX, r.y, r.r, r.r * 0.45, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawPopCoins() {
     for (const pc of popCoins) {
       const x = pc.x - camX, y = pc.y;
@@ -1062,6 +1067,7 @@
     for (const p of powerups) drawPowerup(p);
     for (const e of enemies) drawEnemy(e);
     drawPlayer();
+    drawRings();
     drawParticles();
     drawHud();
     requestAnimationFrame(frame);
