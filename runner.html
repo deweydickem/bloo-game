@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0a0716" />
+<title>Crowd Runner — Bloo Arcade</title>
+<style>
+  html, body { margin:0; padding:0; background:#0a0716; color:#fff; font-family: system-ui, sans-serif; height:100%; overflow:hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  canvas {
+    background:#0a0716;
+    box-shadow:0 0 60px rgba(255, 60, 170, 0.25), 0 12px 40px rgba(0,0,0,.7);
+    border-radius:8px;
+    /* Portrait-friendly: 9:16 if viewport is portrait, 16:9 if landscape */
+    width: min(100vw, calc(100vh * 9 / 16));
+    height: min(100vh, calc(100vw * 16 / 9));
+    display:block;
+  }
+  #btn-back {
+    position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left));
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 12px; letter-spacing: .5px; font-weight: 600;
+    text-decoration: none; cursor: pointer; z-index: 11;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #btn-mute {
+    position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 18px; display:flex; align-items:center; justify-content:center;
+    cursor: pointer; z-index: 11;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #title-tip { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,0.5); pointer-events:none; }
+  @media (hover: none) and (pointer: coarse) { #title-tip { display:none; } }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="540" height="960"></canvas></div>
+<a id="btn-back" href="index.html">‹ MENU</a>
+<div id="btn-mute" title="Mute (M)">🔊</div>
+<div id="title-tip">Move: ← → / A D / drag &nbsp;·&nbsp; M to mute</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  const W = canvas.width, H = canvas.height;
+
+  // ----- Audio (procedural) -----
+  const Audio = (() => {
+    let actx = null, master = null, muted = false;
+    try { muted = localStorage.getItem('bloo.muted') === '1'; } catch(_) {}
+    function ensure(){
+      if (typeof window === 'undefined') return null;
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      if (!actx) { actx = new AC(); master = actx.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(actx.destination); }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+    addEventListener('keydown', ensure, { once: true });
+    addEventListener('pointerdown', ensure, { once: true });
+    addEventListener('touchstart', ensure, { once: true });
+    function setMuted(m){ muted = m; if (master) master.gain.value = muted ? 0 : 0.5; try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_){} }
+    function isMuted(){ return muted; }
+    function tone(f, dur, type, opts={}){
+      const c = ensure(); if (!c || muted) return;
+      const t = c.currentTime; const o = c.createOscillator(); const g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (opts.freqEnd) o.frequency.exponentialRampToValueAtTime(Math.max(40, opts.freqEnd), t + dur);
+      const peak = opts.gain ?? 0.12;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+    }
+    function noise(dur, opts={}){
+      const c = ensure(); if (!c || muted) return;
+      const t = c.currentTime; const len = Math.floor(c.sampleRate * dur);
+      const buf = c.createBuffer(1, len, c.sampleRate); const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(); src.buffer = buf;
+      const f = c.createBiquadFilter(); f.type = opts.filterType || 'bandpass'; f.frequency.value = opts.freq || 600; f.Q.value = opts.Q ?? 1;
+      const g = c.createGain(); const peak = opts.gain ?? 0.1;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(f).connect(g).connect(master); src.start(t); src.stop(t + dur + 0.05);
+    }
+    return {
+      ensure, setMuted, isMuted,
+      shoot(){ tone(900, 0.05, 'square', { freqEnd: 1400, gain: 0.04 }); },
+      gateMul(){ tone(660, 0.10, 'triangle', { gain: 0.18 }); setTimeout(()=>tone(880, 0.14, 'triangle', { gain: 0.16 }), 50); },
+      gateAdd(){ tone(523, 0.10, 'triangle', { gain: 0.16 }); },
+      gateBad(){ tone(220, 0.18, 'sawtooth', { freqEnd: 110, gain: 0.16 }); },
+      enemyHit(){ noise(0.06, { freq: 800, gain: 0.08 }); },
+      enemyKill(){ noise(0.16, { freq: 240, freqEnd: 80, gain: 0.14 }); },
+      cloneLost(){ tone(400, 0.10, 'sawtooth', { freqEnd: 200, gain: 0.10 }); },
+      bossHit(){ noise(0.08, { freq: 600, gain: 0.10 }); },
+      bossDown(){ tone(330, 0.30, 'sawtooth', { freqEnd: 80, gain: 0.18 }); noise(0.30, { freq: 200, freqEnd: 60, gain: 0.10 }); },
+      gameOver(){ [440,370,311,247,196].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'triangle',{gain:0.18}), i*100)); },
+    };
+  })();
+
+  // ----- Asset loading (we reuse the platformer's Blue Spirit sprite for clones) -----
+  const ASSET_LIST = {
+    idle:  'sprites/character/idle_1.png',
+    run1:  'sprites/character/run_1.png',
+    run2:  'sprites/character/run_2.png',
+    run3:  'sprites/character/run_3.png',
+  };
+  const ASSETS = {};
+  let assetsLoaded = 0, assetsTotal = Object.keys(ASSET_LIST).length;
+  for (const [k, src] of Object.entries(ASSET_LIST)) {
+    const img = new Image();
+    img.onload = () => { assetsLoaded++; };
+    img.onerror = () => { assetsLoaded++; img._failed = true; };
+    img.src = src;
+    ASSETS[k] = img;
+  }
+  function ready() { return assetsLoaded >= assetsTotal; }
+
+  // ----- Input -----
+  const keys = {};
+  addEventListener('keydown', e => { keys[e.code] = true; });
+  addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyM') { Audio.setMuted(!Audio.isMuted()); refreshMute(); } });
+
+  // Drag-to-steer on touch / mouse
+  let dragX = null, dragActive = false;
+  function onPointerDown(e){ Audio.ensure(); const p = e.touches ? e.touches[0] : e; dragX = p.clientX; dragActive = true; e.preventDefault && e.preventDefault(); }
+  function onPointerMove(e){ if (!dragActive) return; const p = e.touches ? e.touches[0] : e; if (!p) return; const dx = p.clientX - dragX; if (Math.abs(dx) > 1) { steerInput += dx * 0.0035; dragX = p.clientX; } e.preventDefault && e.preventDefault(); }
+  function onPointerUp(){ dragActive = false; dragX = null; }
+  let steerInput = 0; // -1..+1 desired horizontal speed
+  canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+  canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+  canvas.addEventListener('touchend', onPointerUp);
+  canvas.addEventListener('mousedown', onPointerDown);
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseup', onPointerUp);
+  canvas.addEventListener('mouseleave', onPointerUp);
+
+  // Mute button
+  const muteBtn = document.getElementById('btn-mute');
+  function refreshMute(){ muteBtn.textContent = Audio.isMuted() ? '🔇' : '🔊'; }
+  refreshMute();
+  muteBtn.addEventListener('click', () => { Audio.setMuted(!Audio.isMuted()); refreshMute(); });
+
+  // ============================================================================
+  // GAME STATE
+  // ============================================================================
+  // Lane: a vertical strip in the middle of the canvas
+  const LANE_W = 380;
+  const LANE_X = (W - LANE_W) / 2;
+  const LANE_RIGHT = LANE_X + LANE_W;
+
+  // World scrolls "down" past the camera; positions are in world coords.
+  // The crowd's leader is at a fixed screenY = LEADER_Y in canvas coords.
+  const LEADER_Y = H - 180; // where the crowd is drawn
+
+  // Camera distance traveled
+  let camY = 0;             // world Y at top of canvas (decreases over time)
+  let scrollSpeed = 3.2;    // px/frame, increases over time
+  let distance = 0;         // total distance traveled
+  let bestDistance = 0;
+  try { bestDistance = parseInt(localStorage.getItem('bloo.runner.best') || '0', 10); } catch(_) {}
+
+  // Player crowd
+  const clones = [];        // each: {x, y, kind:'leader'|'follower', t}
+  // The leader has a worldY equal to camY + LEADER_Y and a worldX
+  let leaderX = LANE_X + LANE_W / 2;
+  function spawnClones(n) {
+    for (let i = 0; i < n; i++) clones.push({ x: leaderX + (Math.random()-0.5)*60, y: LEADER_Y + (Math.random()-0.4)*30, t: Math.random()*Math.PI*2 });
+  }
+  function killClone(idx) {
+    if (idx < 0 || idx >= clones.length) return;
+    clones.splice(idx, 1);
+    Audio.cloneLost();
+  }
+
+  // Bullets (auto-fired by clones)
+  const bullets = [];
+  let fireCooldown = 0;
+  const FIRE_INTERVAL = 8; // base frames between volleys
+
+  // Gates — span across the lane horizontally, two halves with different effects
+  const gates = [];
+  let nextGateY = -200; // first gate worldY (negative because world scrolls down)
+
+  // Enemies
+  const enemies = [];
+  let nextEnemyY = -600;
+
+  // Boss
+  let boss = null;
+  let nextBossDistance = 1500;
+
+  // Particles
+  const particles = [];
+  function burst(x, y, color, count = 8) {
+    for (let i = 0; i < count; i++) particles.push({ x, y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 24, color });
+  }
+
+  // Game state
+  let gameOver = false;
+  let gameOverT = 0;
+  let started = false; // wait for first input
+
+  function reset() {
+    clones.length = 0; bullets.length = 0; gates.length = 0; enemies.length = 0; particles.length = 0;
+    boss = null;
+    leaderX = LANE_X + LANE_W / 2;
+    spawnClones(3);
+    camY = 0; distance = 0; scrollSpeed = 3.2;
+    nextGateY = -200; nextEnemyY = -600; nextBossDistance = 1500;
+    gameOver = false; gameOverT = 0; steerInput = 0;
+  }
+  reset();
+
+  // ============================================================================
+  // SPAWNING
+  // ============================================================================
+  function spawnGate() {
+    // Two half-gates side-by-side. Player chooses which half to pass through.
+    // Each half has a label showing what happens to the crowd count.
+    // Mostly positive options to make it feel rewarding; bad halves are obvious.
+    const halfW = LANE_W / 2;
+    const left  = pickGateOp(false);
+    const right = pickGateOp(false);
+    // Make sure not both bad
+    let l = left, r = right;
+    if (l.score < 0 && r.score < 0) r = pickGateOp(true);
+    gates.push({
+      worldY: nextGateY,
+      h: 70,
+      left:  { ...l, x: LANE_X,         w: halfW, hit: false },
+      right: { ...r, x: LANE_X + halfW, w: halfW, hit: false },
+    });
+    nextGateY -= 600 + Math.random() * 200;
+  }
+  function pickGateOp(forcePositive) {
+    const r = Math.random();
+    if (forcePositive || r < 0.55) {
+      // Multiplier ×2..×4
+      const m = 2 + Math.floor(Math.random() * 3);
+      return { type: 'mul', value: m, label: '×' + m, color: '#5fe87a', score: 1 };
+    } else if (r < 0.80) {
+      // Additive +5..+15
+      const a = 5 + Math.floor(Math.random() * 11);
+      return { type: 'add', value: a, label: '+' + a, color: '#9cd6ff', score: 1 };
+    } else if (r < 0.92) {
+      // Subtract -3..-10
+      const a = 3 + Math.floor(Math.random() * 8);
+      return { type: 'sub', value: a, label: '−' + a, color: '#ff5c8a', score: -1 };
+    } else {
+      // Divide ÷2
+      return { type: 'div', value: 2, label: '÷2', color: '#ff5c8a', score: -1 };
+    }
+  }
+  function applyGate(op) {
+    const before = clones.length;
+    let target = before;
+    if (op.type === 'mul') target = before * op.value;
+    else if (op.type === 'add') target = before + op.value;
+    else if (op.type === 'sub') target = Math.max(0, before - op.value);
+    else if (op.type === 'div') target = Math.max(1, Math.floor(before / op.value));
+    target = Math.min(target, 200); // cap to avoid frame drops
+
+    if (target > before) {
+      spawnClones(target - before);
+      if (op.type === 'mul') Audio.gateMul(); else Audio.gateAdd();
+      burst(leaderX, LEADER_Y, op.color, 14);
+    } else if (target < before) {
+      // remove from end
+      const remove = before - target;
+      for (let i = 0; i < remove; i++) clones.pop();
+      Audio.gateBad();
+      burst(leaderX, LEADER_Y, op.color, 10);
+    }
+    if (clones.length === 0 && !gameOver) endGame();
+  }
+
+  function spawnEnemy() {
+    const x = LANE_X + 30 + Math.random() * (LANE_W - 60);
+    enemies.push({
+      worldY: nextEnemyY,
+      x, w: 32, h: 36,
+      hp: 1 + Math.floor(distance / 600),
+      type: 'shadow',
+    });
+    nextEnemyY -= 220 + Math.random() * 180;
+  }
+
+  function spawnBoss() {
+    boss = {
+      worldY: camY - H,            // appears just above the screen
+      hp: 80 + Math.floor(distance / 400) * 30,
+      hpMax: 80 + Math.floor(distance / 400) * 30,
+      w: LANE_W - 40,
+      h: 80,
+      x: LANE_X + 20,
+      defeated: false,
+      defeatT: 0,
+    };
+  }
+
+  // ============================================================================
+  // UPDATE
+  // ============================================================================
+  function update() {
+    if (gameOver) { gameOverT++; return; }
+    if (!started) {
+      // wait for any input
+      if (keys['ArrowLeft'] || keys['ArrowRight'] || keys['KeyA'] || keys['KeyD'] || dragActive || steerInput !== 0) started = true;
+      else return;
+    }
+
+    // Speed ramp
+    scrollSpeed = 3.2 + Math.min(3.0, distance / 1500);
+
+    // Boss freezes scroll
+    const scrolling = !boss || boss.defeated;
+    if (scrolling) {
+      camY -= scrollSpeed;
+      distance += scrollSpeed;
+    }
+
+    // Steering
+    let move = 0;
+    if (keys['ArrowLeft'] || keys['KeyA']) move -= 1;
+    if (keys['ArrowRight'] || keys['KeyD']) move += 1;
+    move += Math.max(-1, Math.min(1, steerInput));
+    steerInput *= 0.7;
+    leaderX += move * 5;
+    leaderX = Math.max(LANE_X + 30, Math.min(LANE_RIGHT - 30, leaderX));
+
+    // Clones follow leader in formation: phyllotaxis-ish spread
+    for (let i = 0; i < clones.length; i++) {
+      const c = clones[i];
+      // target position: spread around leader in concentric arcs behind
+      const ring = Math.floor(Math.sqrt(i + 1));
+      const slot = i - ring*ring + ring;
+      const angle = (slot / Math.max(1, ring*2 + 1)) * Math.PI - Math.PI/2;
+      const r = 16 + ring * 14;
+      const tx = leaderX + Math.cos(angle) * r;
+      const ty = LEADER_Y + Math.abs(Math.sin(angle)) * r * 0.7 + 4;
+      c.x += (tx - c.x) * 0.18;
+      c.y += (ty - c.y) * 0.22;
+      c.t = (c.t || 0) + 0.18 + (i % 3) * 0.02;
+    }
+
+    // Spawn gates / enemies as world scrolls
+    while (nextGateY > camY - H - 50) spawnGate();
+    while (nextEnemyY > camY - H - 50 && !boss) spawnEnemy();
+    if (!boss && distance > nextBossDistance) {
+      spawnBoss();
+      nextBossDistance = distance + 1200 + Math.random() * 600;
+    }
+
+    // Auto-fire from clones (more clones → more bullets / faster)
+    fireCooldown--;
+    const interval = Math.max(2, FIRE_INTERVAL - Math.floor(clones.length / 8));
+    if (fireCooldown <= 0 && clones.length > 0) {
+      // Fire from a few random clones each volley
+      const volleySize = Math.min(clones.length, 1 + Math.floor(clones.length / 6));
+      const seen = new Set();
+      for (let i = 0; i < volleySize; i++) {
+        let idx = Math.floor(Math.random() * clones.length);
+        if (seen.has(idx)) continue; seen.add(idx);
+        const c = clones[idx];
+        bullets.push({ x: c.x, y: c.y - 8, worldY: camY + (c.y - 8), vy: -10 });
+      }
+      Audio.shoot();
+      fireCooldown = interval;
+    }
+
+    // Update bullets (in world coords; convert to screen for display)
+    for (const b of bullets) {
+      b.worldY += b.vy;
+      b.y = b.worldY - camY;
+    }
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      if (b.y < -20) bullets.splice(i, 1);
+    }
+
+    // Update enemies — they descend toward leader at their own speed,
+    // PLUS the world scrolls when not fighting boss
+    for (const e of enemies) {
+      e.worldY += scrolling ? 0 : 1.6;  // during boss, enemies move on their own
+      e.screenY = e.worldY - camY;
+      // Gentle drift toward leader
+      if (e.x < leaderX - 1) e.x += 0.5;
+      else if (e.x > leaderX + 1) e.x -= 0.5;
+    }
+
+    // Bullet vs enemy collision
+    for (const b of bullets) {
+      for (const e of enemies) {
+        if (e.hp <= 0) continue;
+        if (b.x > e.x - e.w/2 && b.x < e.x + e.w/2 &&
+            b.y > e.screenY - e.h/2 && b.y < e.screenY + e.h/2) {
+          e.hp--;
+          b.dead = true;
+          burst(b.x, b.y, '#ffffff', 4);
+          if (e.hp <= 0) { Audio.enemyKill(); burst(e.x, e.screenY, '#a020a0', 12); }
+          else Audio.enemyHit();
+          break;
+        }
+      }
+    }
+    for (let i = bullets.length - 1; i >= 0; i--) if (bullets[i].dead) bullets.splice(i, 1);
+
+    // Enemy vs clone collision (when enemy reaches the crowd, it kills clones around it)
+    for (const e of enemies) {
+      if (e.hp <= 0) continue;
+      if (e.screenY > LEADER_Y - 40 && e.screenY < LEADER_Y + 40) {
+        // hit nearby clones
+        for (let i = clones.length - 1; i >= 0; i--) {
+          const c = clones[i];
+          const dx = c.x - e.x, dy = c.y - e.screenY;
+          if (dx*dx + dy*dy < 26*26) {
+            killClone(i);
+            e.hp--;
+            burst(c.x, c.y, '#88ccff', 8);
+            if (e.hp <= 0) { Audio.enemyKill(); break; }
+          }
+        }
+      }
+    }
+    // Remove dead/passed enemies
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      if (enemies[i].hp <= 0 || enemies[i].screenY > H + 40) enemies.splice(i, 1);
+    }
+
+    // Boss
+    if (boss && !boss.defeated) {
+      // Boss settles at top quarter, blocks scroll
+      const target = H * 0.18;
+      boss.screenY = boss.worldY - camY;
+      if (boss.screenY < target) { boss.worldY += 1.6; }
+      else { boss.worldY = camY + target; }
+
+      // Bullet vs boss
+      for (const b of bullets) {
+        if (b.dead) continue;
+        if (b.x > boss.x && b.x < boss.x + boss.w &&
+            b.y > boss.screenY - 10 && b.y < boss.screenY + boss.h + 10) {
+          boss.hp--;
+          b.dead = true;
+          if (Math.random() < 0.3) Audio.bossHit();
+          burst(b.x, b.y, '#ff5cb8', 4);
+        }
+      }
+      for (let i = bullets.length - 1; i >= 0; i--) if (bullets[i].dead) bullets.splice(i, 1);
+
+      // Boss spawns minions occasionally — must be slow enough that the crowd can win
+      boss._t = (boss._t || 0) + 1;
+      if (boss._t % 140 === 0) {
+        const lane = Math.floor(Math.random() * 3);
+        enemies.push({
+          worldY: boss.worldY + boss.h + 10,
+          x: boss.x + 30 + lane * (boss.w - 60) / 2,
+          w: 26, h: 26,
+          hp: 1,
+          type: 'shadow',
+        });
+      }
+
+      if (boss.hp <= 0) {
+        boss.defeated = true; boss.defeatT = 0;
+        Audio.bossDown();
+        burst(boss.x + boss.w/2, boss.screenY + boss.h/2, '#ff5cb8', 40);
+      }
+    }
+    if (boss && boss.defeated) {
+      boss.defeatT++;
+      if (boss.defeatT > 80) boss = null;
+    }
+
+    // Particles
+    for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life--; }
+    for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
+
+    // Gate collisions — only the gate the leader passes through is "hit"
+    for (const g of gates) {
+      g.screenY = g.worldY - camY;
+      if (!g.left.hit && !g.right.hit && g.screenY >= LEADER_Y - 10 && g.screenY <= LEADER_Y + 30) {
+        if (leaderX < LANE_X + LANE_W / 2) { g.left.hit = true; applyGate(g.left); }
+        else { g.right.hit = true; applyGate(g.right); }
+      }
+    }
+    // Remove off-screen gates
+    for (let i = gates.length - 1; i >= 0; i--) {
+      if (gates[i].screenY > H + 80) gates.splice(i, 1);
+    }
+
+    // Restart key
+    if (keys['KeyR']) reset();
+  }
+
+  function endGame() {
+    if (gameOver) return;
+    gameOver = true; gameOverT = 0;
+    Audio.gameOver();
+    if (Math.floor(distance) > bestDistance) {
+      bestDistance = Math.floor(distance);
+      try { localStorage.setItem('bloo.runner.best', String(bestDistance)); } catch(_) {}
+    }
+  }
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+  function drawBg() {
+    // Lane gradient
+    ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#1a0e3a');
+    g.addColorStop(1, '#0f0820');
+    ctx.fillStyle = g; ctx.fillRect(LANE_X, 0, LANE_W, H);
+    // Lane edges
+    ctx.fillStyle = 'rgba(255, 92, 184, 0.18)';
+    ctx.fillRect(LANE_X - 4, 0, 4, H);
+    ctx.fillRect(LANE_RIGHT, 0, 4, H);
+
+    // Moving lane lines for depth — dashed lines that scroll with camY
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([16, 18]);
+    const offset = (-camY) % 34;
+    ctx.lineDashOffset = -offset;
+    for (let i = 1; i < 4; i++) {
+      const x = LANE_X + (LANE_W * i) / 4;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Ambient drifting dots
+    ctx.fillStyle = 'rgba(255, 92, 184, 0.5)';
+    for (let i = 0; i < 12; i++) {
+      const px = (Math.sin(i * 12.9 + (-camY) * 0.001) * 0.5 + 0.5) * W;
+      const py = ((-camY * 0.5 + i * 80) % H + H) % H;
+      ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawGates() {
+    for (const g of gates) {
+      const sy = g.screenY = g.worldY - camY;
+      if (sy < -100 || sy > H + 100) continue;
+      drawGateHalf(g.left, sy, g.h);
+      drawGateHalf(g.right, sy, g.h);
+    }
+  }
+  function drawGateHalf(half, y, h) {
+    const a = half.hit ? 0.15 : 0.55;
+    ctx.fillStyle = half.color.replace(')', ',' + a + ')').replace('#', 'rgba(').replace(/^rgba\(([0-9a-f]+)/i, (m, hex) => {
+      // not actually used because color is hex; build rgba manually below
+      return m;
+    });
+    // simpler: parse hex manually
+    const c = hexToRgb(half.color);
+    ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${a})`;
+    ctx.fillRect(half.x, y, half.w, h);
+    ctx.strokeStyle = half.color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(half.x + 1, y + 1, half.w - 2, h - 2);
+    // glow stripe
+    if (!half.hit) {
+      ctx.shadowColor = half.color; ctx.shadowBlur = 12;
+      ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${0.3})`;
+      ctx.fillRect(half.x + 4, y + 4, half.w - 8, h - 8);
+      ctx.shadowBlur = 0;
+    }
+    // label
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 28px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(half.label, half.x + half.w / 2, y + h / 2 + 1);
+  }
+  function hexToRgb(hex){
+    const m = hex.replace('#','');
+    return { r: parseInt(m.slice(0,2),16), g: parseInt(m.slice(2,4),16), b: parseInt(m.slice(4,6),16) };
+  }
+
+  function drawEnemies() {
+    for (const e of enemies) {
+      const y = e.screenY;
+      if (y < -50 || y > H + 50) continue;
+      ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 14;
+      // Shadow body
+      ctx.fillStyle = '#3a0a55';
+      ctx.beginPath(); ctx.ellipse(e.x, y, e.w/2, e.h/2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Eyes
+      ctx.fillStyle = '#ff3030';
+      ctx.beginPath(); ctx.arc(e.x - 6, y - 3, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x + 6, y - 3, 3, 0, Math.PI*2); ctx.fill();
+      // angry mouth
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(e.x - 5, y + 6); ctx.lineTo(e.x - 2, y + 4); ctx.lineTo(e.x + 1, y + 6); ctx.lineTo(e.x + 4, y + 4); ctx.lineTo(e.x + 7, y + 6); ctx.stroke();
+      // HP marker if multi-HP
+      if (e.hp > 1) {
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(String(e.hp), e.x, y + e.h/2 + 14);
+      }
+    }
+  }
+
+  function drawBoss() {
+    if (!boss) return;
+    const x = boss.x, y = boss.screenY;
+    if (boss.defeated) {
+      // Disintegrate animation
+      const t = boss.defeatT / 80;
+      ctx.globalAlpha = 1 - t;
+    }
+    // Big shadow body
+    ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 30;
+    const grad = ctx.createLinearGradient(0, y, 0, y + boss.h);
+    grad.addColorStop(0, '#3a0a55');
+    grad.addColorStop(1, '#1a0030');
+    ctx.fillStyle = grad;
+    roundRect(x, y, boss.w, boss.h, 14);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // pink rim
+    ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2.5;
+    roundRect(x, y, boss.w, boss.h, 14); ctx.stroke();
+    // glowing eyes
+    ctx.shadowColor = '#ff3030'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ff3030';
+    ctx.beginPath(); ctx.arc(x + boss.w*0.3, y + boss.h/2, 6, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + boss.w*0.7, y + boss.h/2, 6, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // HP bar above the boss
+    const hpW = boss.w;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(x, y - 14, hpW, 8);
+    ctx.fillStyle = '#ff5cb8';
+    ctx.fillRect(x, y - 14, hpW * Math.max(0, boss.hp / boss.hpMax), 8);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x, y - 14, hpW, 8);
+
+    ctx.globalAlpha = 1;
+  }
+
+  function drawClones() {
+    // Sort by y so back clones draw first
+    const sorted = clones.slice().sort((a, b) => a.y - b.y);
+    for (let i = 0; i < sorted.length; i++) {
+      const c = sorted[i];
+      // Pick run frame based on individual t
+      const frame = Math.floor((c.t || 0)) % 3;
+      const img = [ASSETS.run1, ASSETS.run2, ASSETS.run3][frame];
+      if (!img || !img.width) {
+        // Fallback shape
+        ctx.fillStyle = '#1f6fd1';
+        ctx.beginPath(); ctx.arc(c.x, c.y, 9, 0, Math.PI*2); ctx.fill();
+        continue;
+      }
+      // Crop bottom 16% to remove pink ring
+      const sw = img.width, sh = Math.floor(img.height * 0.84);
+      const targetH = (i === sorted.length - 1) ? 56 : 44;  // leader bigger
+      const aspect = sw / sh;
+      const targetW = targetH * aspect;
+      ctx.drawImage(img, 0, 0, sw, sh, c.x - targetW/2, c.y - targetH + 8, targetW, targetH);
+    }
+  }
+
+  function drawBullets() {
+    for (const b of bullets) {
+      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 10;
+      ctx.fillStyle = '#9cd6ff';
+      ctx.fillRect(b.x - 2, b.y - 8, 4, 12);
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / 24);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHUD() {
+    // Crowd count, top-left
+    ctx.fillStyle = 'rgba(10,5,25,0.7)';
+    roundRect(14, 60, 124, 40, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,92,184,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 6;
+    ctx.fillText('×' + clones.length, 28, 80);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 11px system-ui';
+    ctx.fillText('CLONES', 76, 80);
+
+    // Distance, top-center
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(Math.floor(distance) + ' m', W/2, 76);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = 'bold 10px system-ui';
+    ctx.fillText('BEST: ' + bestDistance + ' m', W/2, 92);
+  }
+
+  function drawTitle() {
+    if (started) return;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, H*0.32, W, 180);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 36px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Crowd Runner', W/2, H*0.42);
+    ctx.fillStyle = '#ff8de0'; ctx.font = 'bold 14px system-ui';
+    ctx.fillText('STEER YOUR ARMY', W/2, H*0.46);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui';
+    ctx.fillText('← →  /  drag to steer', W/2, H*0.51);
+    ctx.fillText('PRESS ANY KEY OR TAP TO START', W/2, H*0.55);
+  }
+
+  function drawGameOver() {
+    if (!gameOver) return;
+    const a = Math.min(0.85, gameOverT / 30);
+    ctx.fillStyle = `rgba(0,0,0,${a})`;
+    ctx.fillRect(0, 0, W, H);
+    if (gameOverT > 20) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 42px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('CROWD LOST', W/2, H*0.40);
+      ctx.fillStyle = '#ff8de0'; ctx.font = 'bold 18px system-ui';
+      ctx.fillText('Distance: ' + Math.floor(distance) + ' m', W/2, H*0.46);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui';
+      ctx.fillText('Best: ' + bestDistance + ' m', W/2, H*0.50);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui';
+      ctx.fillText('PRESS R TO PLAY AGAIN', W/2, H*0.58);
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.closePath();
+  }
+
+  function drawLoading() {
+    ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Loading… ' + assetsLoaded + '/' + assetsTotal, W/2, H/2);
+  }
+
+  function frame() {
+    if (!ready()) {
+      drawLoading();
+      requestAnimationFrame(frame);
+      return;
+    }
+    update();
+    drawBg();
+    drawGates();
+    drawEnemies();
+    drawBoss();
+    drawClones();
+    drawBullets();
+    drawParticles();
+    drawHUD();
+    drawTitle();
+    drawGameOver();
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>

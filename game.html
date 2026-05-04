@@ -77,6 +77,21 @@
     transition: transform .08s ease, background .08s ease;
   }
   #btn-mute:active { transform: scale(0.92); background: rgba(255, 92, 184, 0.35); }
+  /* Back-to-menu button — top-left, above the HUD */
+  #btn-back {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    left: max(14px, env(safe-area-inset-left));
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55);
+    border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 12px; letter-spacing: .5px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    z-index: 11;
+  }
+  #btn-back:active { transform: scale(0.95); }
 </style>
 </head>
 <body>
@@ -90,6 +105,7 @@
   <div id="btn-right" class="tbtn" data-key="ArrowRight">›</div>
   <div id="btn-jump"  class="tbtn" data-key="Space">↑</div>
 </div>
+<a id="btn-back" href="index.html" title="Back to menu">‹ MENU</a>
 <div id="btn-mute" title="Mute (M)" aria-label="Toggle sound">🔊</div>
 <script>
 (() => {

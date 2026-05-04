@@ -3,1557 +3,215 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="theme-color" content="#0a0716" />
-<title>Blue Spirit — Forest of Embers</title>
+<title>Bloo Arcade</title>
 <style>
-  html, body { margin:0; padding:0; background:#0a0716; color:#e8d8ff; font-family: system-ui, sans-serif; height:100%; overflow:hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
-  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
-  canvas {
-    background:#0a0716;
-    box-shadow:0 0 60px rgba(255, 60, 170, 0.25), 0 12px 40px rgba(0,0,0,.7);
-    border-radius:8px;
-    /* Scale to fit viewport while preserving 16:9 aspect ratio */
-    width: min(100vw, calc(100vh * 16 / 9));
-    height: min(100vh, calc(100vw * 9 / 16));
-    image-rendering: auto;
+  :root {
+    --bg-1: #0a0716;
+    --bg-2: #1a0e3a;
+    --bg-3: #2a134a;
+    --pink: #ff5cb8;
+    --pink-2: #ff8de0;
+    --cyan: #9cd6ff;
+  }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: radial-gradient(ellipse at top, var(--bg-3) 0%, var(--bg-2) 35%, var(--bg-1) 80%);
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 20px 60px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+  header { text-align: center; margin: 8px 0 28px; }
+  h1 {
+    margin: 0; font-size: clamp(36px, 6vw, 64px); font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255, 92, 184, 0.35);
+  }
+  .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 14px; letter-spacing: .5px; }
+  .grid {
+    display: grid; gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+    justify-content: center;
+    width: 100%; max-width: 1100px;
+  }
+  .card {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(20, 8, 40, 0.55);
+    border: 1.5px solid rgba(255, 92, 184, 0.35);
+    box-shadow: 0 12px 32px rgba(0,0,0,.5), 0 0 24px rgba(255, 92, 184, 0.15);
+    text-decoration: none; color: #fff;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    cursor: pointer;
     display: block;
   }
-  #title { position:absolute; top:14px; left:14px; font-size:13px; opacity:.55; pointer-events:none; letter-spacing:.5px; }
-  #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-  #overlay div { background:rgba(20, 8, 40, 0.85); padding:18px 28px; border-radius:10px; font-size:22px; display:none; border:2px solid #ff5cb8; box-shadow:0 0 30px rgba(255,92,184,.4); color:#fff; max-width: 80vw; text-align: center; }
-  .show { display:block !important; }
-
-  /* ---------- Touch controls ---------- */
-  #touch {
-    position: fixed; inset: 0; pointer-events: none;
-    display: none; /* shown only when touch is detected */
+  .card:hover, .card:focus {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 44px rgba(0,0,0,.6), 0 0 36px rgba(255, 92, 184, 0.35);
+    border-color: rgba(255, 92, 184, 0.7);
+    outline: none;
   }
-  #touch.on { display: block; }
-  .tbtn {
-    position: absolute;
-    bottom: max(24px, env(safe-area-inset-bottom));
-    width: 78px; height: 78px;
-    border-radius: 50%;
-    background: rgba(20, 8, 40, 0.55);
-    border: 2px solid rgba(255, 92, 184, 0.6);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    box-shadow: 0 0 18px rgba(255, 92, 184, 0.25);
-    pointer-events: auto;
+  .card:active { transform: translateY(-1px); }
+  .thumb {
+    height: 200px;
+    position: relative;
     display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 28px; font-weight: bold;
-    transition: transform .08s ease, background .08s ease;
-    user-select: none; -webkit-user-select: none;
+    overflow: hidden;
   }
-  .tbtn:active, .tbtn.held {
-    transform: scale(0.92);
-    background: rgba(255, 92, 184, 0.35);
+  .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
+  .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 200%); }
+  .thumb svg { width: 100%; height: 100%; }
+  .body { padding: 18px 22px 22px; }
+  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .game-title { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: .3px; }
+  .badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(255, 92, 184, 0.18);
+    color: var(--pink-2);
+    border: 1px solid rgba(255, 92, 184, 0.4);
+    letter-spacing: .5px;
   }
-  #btn-left  { left: max(20px, env(safe-area-inset-left)); }
-  #btn-right { left: calc(max(20px, env(safe-area-inset-left)) + 92px); }
-  #btn-jump  { right: max(20px, env(safe-area-inset-right)); }
-  #title.mobile { display: none; }
-  @media (hover: none) and (pointer: coarse) {
-    #title { display: none; }
+  .badge.new { background: rgba(156, 214, 255, 0.18); color: var(--cyan); border-color: rgba(156, 214, 255, 0.4); }
+  p.desc { color: rgba(255,255,255,0.65); font-size: 14px; line-height: 1.5; margin: 8px 0 0; }
+  .play-row { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .play {
+    background: linear-gradient(135deg, var(--pink) 0%, #c038ff 100%);
+    color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .8px;
+    padding: 10px 18px; border-radius: 999px; border: 0;
+    box-shadow: 0 6px 18px rgba(255, 92, 184, 0.45);
   }
-  /* Mute button — always visible, top-right */
-  #btn-mute {
-    position: fixed;
-    top: max(14px, env(safe-area-inset-top));
-    right: max(14px, env(safe-area-inset-right));
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    background: rgba(20, 8, 40, 0.55);
-    border: 1.5px solid rgba(255, 92, 184, 0.45);
-    color: #fff; font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; pointer-events: auto;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    user-select: none; -webkit-user-select: none;
-    z-index: 10;
-    transition: transform .08s ease, background .08s ease;
+  .meta { color: rgba(255,255,255,0.4); font-size: 12px; }
+  footer { margin-top: 40px; color: rgba(255,255,255,0.35); font-size: 12px; text-align: center; }
+  footer a { color: var(--pink-2); text-decoration: none; }
+  .ambient { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
+  .ambient .dot {
+    position: absolute; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--pink); box-shadow: 0 0 10px var(--pink);
+    animation: rise 8s linear infinite;
+    opacity: 0.5;
   }
-  #btn-mute:active { transform: scale(0.92); background: rgba(255, 92, 184, 0.35); }
+  .ambient .dot.cyan { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  @keyframes rise {
+    from { transform: translateY(110vh); opacity: 0; }
+    20%  { opacity: 0.7; }
+    to   { transform: translateY(-10vh); opacity: 0; }
+  }
 </style>
 </head>
 <body>
-<div id="title">Arrow keys / WASD — move&nbsp;&nbsp;·&nbsp;&nbsp;Space / Up — jump&nbsp;&nbsp;·&nbsp;&nbsp;Shift — run&nbsp;&nbsp;·&nbsp;&nbsp;R — restart</div>
-<div id="wrap">
-  <canvas id="c" width="960" height="540"></canvas>
-</div>
-<div id="overlay"><div id="msg"></div></div>
-<div id="touch" aria-hidden="true">
-  <div id="btn-left"  class="tbtn" data-key="ArrowLeft">‹</div>
-  <div id="btn-right" class="tbtn" data-key="ArrowRight">›</div>
-  <div id="btn-jump"  class="tbtn" data-key="Space">↑</div>
-</div>
-<div id="btn-mute" title="Mute (M)" aria-label="Toggle sound">🔊</div>
-<script>
-(() => {
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  const W = canvas.width, H = canvas.height;
+  <div class="ambient" id="amb"></div>
+  <header>
+    <h1>Bloo Arcade</h1>
+    <div class="subtitle">A growing collection of mini-games</div>
+  </header>
 
-  // ----- Input -----
-  const keys = {};
-  addEventListener('keydown', e => { keys[e.code] = true; if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault(); });
-  addEventListener('keyup',   e => { keys[e.code] = false; });
+  <div class="grid">
+    <a class="card" href="game.html" aria-label="Play Forest of Embers">
+      <div class="thumb thumb-platformer">
+        <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="glowP" cx="50%" cy="60%" r="60%">
+              <stop offset="0%" stop-color="#ff8de0" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#ff8de0" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="360" height="200" fill="url(#glowP)"/>
+          <g fill="#1f1145" opacity="0.7">
+            <ellipse cx="40" cy="130" rx="28" ry="32"/>
+            <ellipse cx="100" cy="130" rx="32" ry="36"/>
+            <ellipse cx="170" cy="130" rx="28" ry="34"/>
+            <ellipse cx="240" cy="130" rx="34" ry="38"/>
+            <ellipse cx="320" cy="130" rx="30" ry="32"/>
+          </g>
+          <rect x="0" y="160" width="360" height="40" fill="#1a1230"/>
+          <rect x="0" y="156" width="360" height="6" fill="#1b8a40"/>
+          <rect x="0" y="154" width="360" height="3" fill="#4dd07a"/>
+          <g transform="translate(180, 130)">
+            <ellipse cx="0" cy="0" rx="22" ry="22" fill="#ff5cb8" opacity="0.25"/>
+            <path d="M -10 0 Q -8 -22 -2 -8 Q 0 -28 4 -8 Q 10 -22 12 0 Z" fill="#ff5cb8"/>
+            <circle cx="0" cy="0" r="14" fill="#1f6fd1"/>
+            <circle cx="0" cy="2" r="8" fill="#9fd9ff"/>
+            <circle cx="-4" cy="-2" r="3" fill="#fff"/>
+            <circle cx="4" cy="-2" r="3" fill="#fff"/>
+            <circle cx="-4" cy="-1" r="1.4" fill="#0a0a3a"/>
+            <circle cx="4" cy="-1" r="1.4" fill="#0a0a3a"/>
+          </g>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Forest of Embers</h2>
+          <span class="badge">3 LEVELS</span>
+        </div>
+        <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
+          <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
 
-  // ----- Touch input — wire on-screen buttons to the same keys[] object -----
-  // (Wrapped in try so headless test environments without `window` don't crash.)
-  try {
-    const touchEl = document.getElementById('touch');
-    function enableTouchUI() { if (touchEl) touchEl.classList.add('on'); }
-    const hasTouch = (typeof window !== 'undefined') && (
-      ('ontouchstart' in window) ||
-      ((typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0)
-    );
-    if (hasTouch) enableTouchUI();
-    if (typeof addEventListener !== 'undefined') {
-      addEventListener('touchstart', enableTouchUI, { once: true });
+    <a class="card" href="runner.html" aria-label="Play Crowd Runner">
+      <div class="thumb thumb-runner">
+        <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="laneR" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1a0e30"/>
+              <stop offset="100%" stop-color="#2a134a"/>
+            </linearGradient>
+          </defs>
+          <rect width="360" height="200" fill="url(#laneR)"/>
+          <g stroke="rgba(255,92,184,0.35)" stroke-width="2" stroke-dasharray="6 8">
+            <line x1="60" y1="0" x2="60" y2="200"/>
+            <line x1="300" y1="0" x2="300" y2="200"/>
+          </g>
+          <rect x="80" y="40" width="100" height="40" fill="rgba(80,255,140,0.25)" stroke="#5fe87a" stroke-width="2" rx="6"/>
+          <text x="130" y="68" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="22" font-weight="bold">×2</text>
+          <rect x="180" y="40" width="100" height="40" fill="rgba(255,90,140,0.22)" stroke="#ff5c8a" stroke-width="2" rx="6"/>
+          <text x="230" y="68" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="20" font-weight="bold">−5</text>
+          <g transform="translate(180, 160)">
+            <circle cx="-30" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
+            <circle cx="-12" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
+            <circle cx="0" cy="-2" r="11" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="2"/>
+            <circle cx="14" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
+            <circle cx="32" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
+          </g>
+        </svg>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Crowd Runner</h2>
+          <span class="badge new">NEW</span>
+        </div>
+        <p class="desc">Top-down endless auto-shooter. Steer your crowd through gates to multiply, mow down enemies, survive the boss walls.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Endless</span>
+          <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <footer>
+    <span>More minigames coming soon · </span>
+    <a href="https://github.com/deweydickem/bloo-game" target="_blank" rel="noopener">source</a>
+  </footer>
+
+  <script>
+    const amb = document.getElementById('amb');
+    for (let i = 0; i < 30; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot' + (Math.random() < 0.5 ? ' cyan' : '');
+      d.style.left = (Math.random() * 100) + 'vw';
+      d.style.animationDelay = (Math.random() * 8) + 's';
+      d.style.animationDuration = (6 + Math.random() * 6) + 's';
+      d.style.opacity = 0.3 + Math.random() * 0.5;
+      amb.appendChild(d);
     }
-
-    const btns = ['btn-left','btn-right','btn-jump']
-      .map(id => document.getElementById(id))
-      .filter(b => b && b.dataset && b.addEventListener);
-    for (const b of btns) {
-      const code = b.dataset.key;
-      const press = (e) => { e.preventDefault(); keys[code] = true; b.classList.add('held'); };
-      const release = (e) => { e.preventDefault(); keys[code] = false; b.classList.remove('held'); };
-      b.addEventListener('touchstart', press, { passive: false });
-      b.addEventListener('touchend',   release, { passive: false });
-      b.addEventListener('touchcancel', release, { passive: false });
-      b.addEventListener('mousedown', press);
-      b.addEventListener('mouseup',   release);
-      b.addEventListener('mouseleave', release);
-    }
-  } catch (e) { /* ignore — non-browser env */ }
-
-  // ----- Mute button + M hotkey -----
-  try {
-    const muteBtn = document.getElementById('btn-mute');
-    function refreshMuteIcon() { if (muteBtn) muteBtn.textContent = Audio.isMuted() ? '🔇' : '🔊'; }
-    refreshMuteIcon();
-    if (muteBtn && muteBtn.addEventListener) {
-      muteBtn.addEventListener('click', (e) => { e.preventDefault(); Audio.ensure(); Audio.toggleMute(); refreshMuteIcon(); });
-      muteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); Audio.ensure(); Audio.toggleMute(); refreshMuteIcon(); }, { passive: false });
-    }
-    if (typeof addEventListener !== 'undefined') {
-      addEventListener('keydown', (e) => {
-        if (e.code === 'KeyM') { Audio.toggleMute(); refreshMuteIcon(); }
-      });
-    }
-  } catch (e) { /* ignore — non-browser env */ }
-
-  // ============ AUDIO ENGINE (procedural Web Audio SFX) ============
-  const Audio = (() => {
-    let ctx = null, master = null, muted = false;
-    try { muted = localStorage.getItem('bloo.muted') === '1'; } catch(_) {}
-
-    function ensure() {
-      if (typeof window === 'undefined') return null;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      if (!ctx) {
-        ctx = new AC();
-        master = ctx.createGain();
-        master.gain.value = muted ? 0 : 0.55;
-        master.connect(ctx.destination);
-      }
-      // Resume if suspended (autoplay policy)
-      if (ctx.state === 'suspended') ctx.resume();
-      return ctx;
-    }
-
-    // Unlock on first user gesture
-    function unlock() { ensure(); }
-    if (typeof addEventListener !== 'undefined') {
-      addEventListener('keydown',    unlock, { once: true });
-      addEventListener('pointerdown', unlock, { once: true });
-      addEventListener('touchstart', unlock, { once: true });
-    }
-
-    function setMuted(m) {
-      muted = m;
-      if (master) master.gain.value = muted ? 0 : 0.55;
-      try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_) {}
-    }
-    function toggleMute() { setMuted(!muted); return muted; }
-    function isMuted() { return muted; }
-
-    // ---- Synthesis helpers ----
-    // tone(freq, dur, type, opts) — sine/triangle/square/sawtooth with ADSR envelope
-    function tone(freq, dur, type, opts = {}) {
-      const c = ensure(); if (!c || muted) return;
-      const t0 = c.currentTime;
-      const osc = c.createOscillator();
-      const g   = c.createGain();
-      osc.type = type || 'sine';
-      osc.frequency.setValueAtTime(freq, t0);
-      if (opts.freqEnd) {
-        osc.frequency.exponentialRampToValueAtTime(Math.max(40, opts.freqEnd), t0 + dur);
-      }
-      const peak = opts.gain ?? 0.25;
-      const atk = opts.atk ?? 0.005;
-      const rel = opts.rel ?? Math.min(0.4, dur);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(peak, t0 + atk);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(g).connect(master);
-      osc.start(t0);
-      osc.stop(t0 + dur + 0.05);
-    }
-
-    // chord/arpeggio of frequencies played one after another (or together if step=0)
-    function arp(freqs, stepDur, type, opts = {}) {
-      const c = ensure(); if (!c || muted) return;
-      freqs.forEach((f, i) => {
-        setTimeout(() => tone(f, opts.noteDur || stepDur * 1.4, type, opts), i * stepDur * 1000);
-      });
-    }
-
-    // noise burst with optional bandpass — for whooshes/thuds
-    function noise(dur, opts = {}) {
-      const c = ensure(); if (!c || muted) return;
-      const t0 = c.currentTime;
-      const len = Math.max(1, Math.floor(c.sampleRate * dur));
-      const buf = c.createBuffer(1, len, c.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1);
-      const src = c.createBufferSource();
-      src.buffer = buf;
-      const filt = c.createBiquadFilter();
-      filt.type = opts.filterType || 'bandpass';
-      filt.frequency.setValueAtTime(opts.freq || 800, t0);
-      if (opts.freqEnd) filt.frequency.exponentialRampToValueAtTime(opts.freqEnd, t0 + dur);
-      filt.Q.value = opts.Q ?? 1.0;
-      const g = c.createGain();
-      const peak = opts.gain ?? 0.18;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(peak, t0 + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      src.connect(filt).connect(g).connect(master);
-      src.start(t0);
-      src.stop(t0 + dur + 0.05);
-    }
-
-    // ---- Game-specific sounds ----
-    return {
-      ensure, setMuted, toggleMute, isMuted,
-      jump()        { tone(420, 0.16, 'triangle', { freqEnd: 700, gain: 0.18, rel: 0.14 }); noise(0.08, { freq: 1200, freqEnd: 600, gain: 0.05 }); },
-      doubleJump()  { arp([660, 880, 1320], 0.06, 'triangle', { gain: 0.18, noteDur: 0.18 }); },
-      land()        { tone(120, 0.10, 'triangle', { gain: 0.14, rel: 0.08 }); noise(0.07, { freq: 220, gain: 0.07 }); },
-      coin()        { tone(988, 0.08, 'sine', { gain: 0.18 }); setTimeout(() => tone(1318, 0.16, 'sine', { gain: 0.16 }), 50); },
-      block()       { tone(180, 0.09, 'square', { gain: 0.14, rel: 0.07 }); noise(0.05, { freq: 400, gain: 0.04 }); },
-      powerup()     { arp([523, 659, 784, 1047], 0.07, 'triangle', { gain: 0.18, noteDur: 0.20 }); },
-      enemyStomp()  { noise(0.18, { freq: 200, freqEnd: 80, gain: 0.16, Q: 0.6 }); tone(160, 0.08, 'square', { gain: 0.10 }); },
-      hurt()        { tone(330, 0.18, 'sawtooth', { freqEnd: 180, gain: 0.16 }); tone(520, 0.18, 'square', { freqEnd: 240, gain: 0.06 }); },
-      death()       { arp([440, 370, 311, 247, 196], 0.10, 'triangle', { gain: 0.18, noteDur: 0.22 }); },
-      spring()      { tone(220, 0.16, 'sine', { freqEnd: 880, gain: 0.18, rel: 0.12 }); },
-      portal()      { arp([523, 659, 784, 1047, 1319, 1568], 0.09, 'sine', { gain: 0.20, noteDur: 0.30 }); setTimeout(() => arp([1047, 1319, 1568], 0.08, 'triangle', { gain: 0.14, noteDur: 0.30 }), 180); },
-    };
-  })();
-
-  // ----- Asset loading -----
-  const ASSET_LIST = {
-    idle1:    'sprites/character/idle_1.png',
-    idle2:    'sprites/character/idle_2.png',
-    run1:     'sprites/character/run_1.png',
-    run2:     'sprites/character/run_2.png',
-    run3:     'sprites/character/run_3.png',
-    jump1:    'sprites/character/jump_1.png',
-    jump2:    'sprites/character/jump_2.png',
-    jump3:    'sprites/character/jump_3.png',
-    attack:   'sprites/character/attack.png',
-    hurt:     'sprites/character/hurt.png',
-    grass1:   'sprites/tiles/grass_block_1.png',
-    grass2:   'sprites/tiles/grass_block_2.png',
-    bush:     'sprites/tiles/grass_bush.png',
-    vines:    'sprites/tiles/grass_vines.png',
-    sign:     'sprites/props/sign.png',
-    plant:    'sprites/props/plant.png',
-    arch:     'sprites/props/stone_arch.png',
-    coin1:    'sprites/collectibles/coin_1.png',
-    coin2:    'sprites/collectibles/coin_2.png',
-    gem:      'sprites/collectibles/gem.png',
-    orb:      'sprites/collectibles/orb.png',
-    swirl:    'sprites/effects/portal_swirl.png',
-    dust:     'sprites/effects/dust_cloud.png',
-    sparkles: 'sprites/effects/sparkles.png',
-    fireball: 'sprites/effects/fireball.png',
-  };
-  const ASSETS = {};
-  let assetsLoaded = 0, assetsTotal = Object.keys(ASSET_LIST).length;
-  for (const [k, src] of Object.entries(ASSET_LIST)) {
-    const img = new Image();
-    img.onload = () => { assetsLoaded++; };
-    img.onerror = () => { assetsLoaded++; img._failed = true; };
-    img.src = src;
-    ASSETS[k] = img;
-  }
-  function allAssetsReady() { return assetsLoaded >= assetsTotal; }
-  // back-compat alias
-  const playerImg = ASSETS.idle1;
-  let playerImgLoaded = false;
-
-  // ----- World -----
-  const TILE = 40;
-  const GRAVITY = 0.45;        // floatier: was 0.7
-  const APEX_GRAVITY = 0.22;   // gentler near jump apex (hang time)
-  const FALL_GRAVITY = 0.55;   // a touch faster on the way down so it still feels controllable
-  const MAX_FALL = 11;         // cap fall speed (was 16)
-  const MOVE_ACC = 0.6;
-  const RUN_ACC  = 0.9;
-  const FRICTION = 0.82;
-  const MAX_WALK = 4.2;
-  const MAX_RUN  = 7.0;
-  const JUMP_V   = -11.5;      // first jump (was -13.5) — lower since gravity is lower
-  const JUMP2_V  = -10.0;      // double jump — slightly weaker
-  const MAX_JUMPS = 2;         // double jump enabled
-
-  // Level chars:
-  //   '#'=ground, '='=brick, '?'=question, 'P'=pillar, 'F'=portal,
-  //   'c'=coin, 'g'=spiky walker, 'd'=floating devil, 'S'=start, ' '=empty
-  //   '^'=spike (instant death), '!'=spring (bounce pad),
-  //   '>'=moving platform (horizontal), 'v'=moving platform (vertical)
-  const LEVEL_LAYOUTS = {
-    'Forest of Embers': [
-    "                                                                                                                                                                                                ",
-    "                                                                                                                                                                                                ",
-    "                                                                                                d                                                                      F                        ",
-    "                  ccc                                                                                                                                                  F                        ",
-    "                                                                d                                                                                                      F                        ",
-    "                                              c c c c                                                          cccc                                                    F                        ",
-    "         c                  ===?===                                                                          ========                                       ccccc      F                        ",
-    "         c                                                                                                                                                ===========  F                        ",
-    "                                          =?=                                                                                                                          F                        ",
-    "                                                              ===                              cc                                                                      F                        ",
-    "  S                              g                                          g                                                  g          g                            F                        ",
-    "##########################  ###############################  ##################  PP  #####################################  PPPP  ########################################################      ",
-    "##########################  ###############################  ##################  PP  #####################################  PPPP  ########################################################      ",
-    ],
-    'The Hollow Climb': [
-      "                                                                                                                                                                                                ",
-      "                                                                                                                                                                                                ",
-      "                                  ccc                                                                                       ccc                                                                 ",
-      "                                                                                                                                                                                                ",
-      "                                                                                                                                            ccccc                                              F",
-      "         d                                                                                                                                =========                                            F",
-      "                          ===?===                              cc                                                                                                                              F",
-      "                                                            ========                              cc                                                                                            F",
-      "                                                                                              ========                            ccc                                                          F",
-      "                              ccc                                              d                                              ====?====                                                        F",
-      "  S    !                                            g                                                                                                              g                            F",
-      "###############  ##############################################  ##^^^^^^^^##  ####################  ##^^^##  ###############################################  ###################  ###########",
-      "###############  ##############################################  ##########  #####################  #######  ###############################################  ###################  ###########",
-    ],
-    'Skyspire': [
-      "                                                                                                                                                                                                ",
-      "                                  ccc                                                                                                                              ccc                          ",
-      "                                                                                                                                                                                                ",
-      "                                                                              cc                                                                                                                ",
-      "                                                                                                                                                                                                ",
-      "                          ccc                                              ===?===                                              cccccc                                                          F",
-      "                                                          ccc                                                                ===========                                                        F",
-      "                                                                                              cc                                                                                                F",
-      "         d                                            ===?===                                                                                                       d                            F",
-      "                                              ccc                                              cc                cc                                            cc                                F",
-      "  S    !          !                  g                                                                                                                                          g                F",
-      "###########  ###  ##  #################  ##^^##  ############  ##^^^^^^##  ##############  ###^^^###  ##^^##  ##  ##^^^^^^^^^^^##  ##############  ##^^^##  ###############################  ###",
-      "###########  ###  ##  #################  ######  ############  ##########  ##############  #########  ######  ##  #################  ##############  #######  ###############################  ###",
-    ],
-  };
-  const LEVEL_ORDER = ['Forest of Embers', 'The Hollow Climb', 'Skyspire'];
-  let currentLevel = 0;
-  let level = LEVEL_LAYOUTS[LEVEL_ORDER[currentLevel]];
-
-  let ROWS = level.length;
-  let COLS = level[0].length;
-  let LEVEL_W = COLS * TILE;
-  let LEVEL_H = ROWS * TILE;
-
-  const solids = [];
-  const coins = [];
-  const enemies = [];
-  const blocks = [];
-  const spikes = [];        // {x,y,w,h}
-  const springs = [];       // {x,y,w,h,charge}
-  const movingPlats = [];   // {x,y,w,h,vx,vy,minX,maxX,minY,maxY,type}
-  let portalX = 0, portalY = 0, portalH = 0;
-  let startX = 80, startY = 100;
-
-  function buildLevel() {
-    level = LEVEL_LAYOUTS[LEVEL_ORDER[currentLevel]];
-    ROWS = level.length;
-    COLS = Math.max(...level.map(r => r.length));
-    LEVEL_W = COLS * TILE;
-    LEVEL_H = ROWS * TILE;
-
-    solids.length = 0; coins.length = 0; enemies.length = 0; blocks.length = 0;
-    spikes.length = 0; springs.length = 0; movingPlats.length = 0;
-    let mushroomGiven = false;
-    for (let r = 0; r < ROWS; r++) {
-      const row = level[r];
-      for (let c = 0; c < row.length; c++) {
-        const ch = row[c];
-        const x = c * TILE, y = r * TILE;
-        if (ch === '#') solids.push({x,y,w:TILE,h:TILE,type:'ground'});
-        else if (ch === '=') {
-          const b = {x,y,w:TILE,h:TILE,type:'brick',hit:false};
-          solids.push({x,y,w:TILE,h:TILE,type:'brick'});
-          blocks.push(b);
-        }
-        else if (ch === '?') {
-          const b = {x,y,w:TILE,h:TILE,type:'question',hit:false,contains: mushroomGiven ? 'coin' : 'crystal'};
-          mushroomGiven = true;
-          solids.push({x,y,w:TILE,h:TILE,type:'question',ref:b});
-          blocks.push(b);
-        }
-        else if (ch === 'P') solids.push({x,y,w:TILE,h:TILE,type:'pillar'});
-        else if (ch === 'c') coins.push({x:x+TILE/2, y:y+TILE/2, r:11, taken:false, t:Math.random()*Math.PI*2});
-        else if (ch === 'g') enemies.push({x:x+4, y:y+8, w:TILE-8, h:TILE-8, vx:-1.2, vy:0, alive:true, type:'spiky', squashT:0});
-        else if (ch === 'd') enemies.push({x:x+4, y:y+4, w:TILE-8, h:TILE-8, vx:1.0, vy:0, alive:true, type:'devil', baseY:y+4, t:Math.random()*Math.PI*2, squashT:0});
-        else if (ch === '^') spikes.push({x: x+2, y: y+18, w: TILE-4, h: TILE-18});
-        else if (ch === '!') springs.push({x: x+4, y: y+TILE-18, w: TILE-8, h: 14, charge: 0});
-        else if (ch === '>') {
-          // horizontal moving platform 3 tiles wide, oscillates ±60px around spawn
-          movingPlats.push({x, y, w: TILE*2, h: 12, vx: 1.4, vy: 0, axis: 'x', minX: x - 60, maxX: x + 60});
-        }
-        else if (ch === 'v') {
-          movingPlats.push({x, y, w: TILE*2, h: 12, vx: 0, vy: 1.0, axis: 'y', minY: y - 60, maxY: y + 60});
-        }
-        else if (ch === 'S') { startX = x; startY = y; }
-      }
-    }
-    let top = ROWS, bot = 0;
-    for (let r=0; r<ROWS; r++) for (let c=0; c<level[r].length; c++) if (level[r][c]==='F') { if (r<top) top=r; if (r>bot) bot=r; portalX = c*TILE + TILE/2; }
-    portalY = top*TILE; portalH = (bot-top+1)*TILE;
-  }
-  buildLevel();
-  let nextLevelMessageT = 0; // banner display timer
-  let levelEnterT = 90;       // show banner on initial load too
-  function loadLevel(idx) {
-    currentLevel = idx;
-    buildLevel();
-    resetPlayer();
-    levelEnterT = 90; // show level name banner for 1.5s
-    camX = 0;
-  }
-  function advanceLevel() {
-    if (currentLevel + 1 < LEVEL_ORDER.length) {
-      loadLevel(currentLevel + 1);
-    } else {
-      // Final win
-      player.won = true;
-      showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Crystals: ' + player.coins + ' — press R to play again');
-    }
-  }
-
-  // ----- Player -----
-  const player = {
-    x: startX, y: startY, w: 36, h: 44,
-    vx: 0, vy: 0,
-    onGround: false,
-    facing: 1,
-    big: false,
-    invuln: 0,
-    coins: 0,
-    lives: 3,
-    won: false,
-    dead: false,
-    deathT: 0,
-    jumpsUsed: 0,           // double-jump tracker (resets on landing)
-    jumpKeyHeld: false,     // edge-trigger so holding doesn't auto-bounce
-  };
-  function resetPlayer() {
-    player.x = startX; player.y = startY;
-    player.vx = 0; player.vy = 0;
-    player.big = false; player.invuln = 60;
-    player.dead = false; player.deathT = 0; player.won = false;
-    player.jumpsUsed = 0; player.jumpKeyHeld = false;
-  }
-
-  const powerups = [];
-  const particles = [];
-  const popCoins = []; // Mario-style popping coins from bumped blocks
-  const rings = [];    // expanding magic rings (e.g., double-jump flourish)
-  function spawnPopCoin(x, y) {
-    popCoins.push({ x, y, vx: (Math.random()-.5)*0.6, vy: -10, t: 0, life: 60, awarded: false });
-  }
-  const ambient = [];
-  // pre-seed ambient particles
-  for (let i = 0; i < 40; i++) ambient.push({x: Math.random()*W, y: Math.random()*H, vy: -0.2 - Math.random()*0.4, vx:(Math.random()-.5)*.3, life: 200 + Math.random()*300, hue: Math.random() < 0.5 ? '#ff6acb' : '#9cd6ff', size: 1 + Math.random()*2});
-
-  function burst(x,y,color){
-    for (let i=0; i<10; i++) particles.push({x,y,vx:(Math.random()-.5)*4, vy:-Math.random()*4-1, life:30, color});
-  }
-
-  // ----- Camera -----
-  let camX = 0;
-  function updateCamera() {
-    const target = player.x - W*0.4;
-    camX += (target - camX) * 0.15;
-    camX = Math.max(0, Math.min(camX, LEVEL_W - W));
-  }
-
-  // ----- Collision helpers -----
-  function rectsOverlap(a,b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
-
-  function moveAndCollide(ent, vx, vy) {
-    ent.x += vx;
-    for (const s of solids) {
-      if (rectsOverlap(ent, s)) {
-        if (vx > 0) ent.x = s.x - ent.w;
-        else if (vx < 0) ent.x = s.x + s.w;
-        ent.vx = 0;
-        if (ent.isEnemy) ent.vx = -vx > 0 ? Math.abs(ent.vxBase || 1.2) : -Math.abs(ent.vxBase || 1.2);
-      }
-    }
-    ent.y += vy;
-    ent.onGround = false;
-    for (const s of solids) {
-      if (rectsOverlap(ent, s)) {
-        if (vy > 0) { ent.y = s.y - ent.h; ent.vy = 0; ent.onGround = true; }
-        else if (vy < 0) {
-          ent.y = s.y + s.h; ent.vy = 0;
-          if (ent === player && (s.type === 'question' || s.type === 'brick')) {
-            const b = s.ref || blocks.find(b => b.x===s.x && b.y===s.y);
-            if (b) {
-              if (s.type === 'question' && !b.hit) {
-                b.hit = true;
-                if (b.contains === 'crystal') {
-                  powerups.push({x:b.x+6, y:b.y - TILE, w:28, h:28, vx:1.5, vy:0, type:'crystal', emerging:20});
-                  Audio.block();
-                } else {
-                  spawnPopCoin(b.x + TILE/2, b.y);
-                  Audio.block();
-                }
-                b.bumpT = 8;
-              } else if (s.type === 'brick') {
-                b.bumpT = 8;
-                Audio.block();
-                let popped = 0;
-                for (const c of coins) {
-                  if (c.taken) continue;
-                  if (Math.abs(c.x - (b.x + TILE/2)) < TILE/2 && Math.abs(c.y - (b.y - TILE/2)) < 22) {
-                    c.taken = true;
-                    spawnPopCoin(c.x, c.y);
-                    popped++;
-                  }
-                }
-                if (player.big && popped === 0 && !b.hit) {
-                  b.hit = true; burst(b.x+TILE/2, b.y, '#5a3a8a');
-                  const idx = solids.indexOf(s); if (idx>=0) solids.splice(idx,1);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // ----- Update -----
-  let animT = 0;
-  function update() {
-    animT++;
-    if (player.won) return;
-    if (player.dead) {
-      player.deathT++;
-      player.vy += GRAVITY*0.5;
-      player.y += player.vy;
-      if (player.deathT > 90) {
-        player.lives--;
-        if (player.lives <= 0) {
-          showMsg('GAME OVER — press R to try again'); player.lives = 0;
-        } else {
-          resetPlayer();
-        }
-      }
-      return;
-    }
-
-    const left  = keys['ArrowLeft']  || keys['KeyA'];
-    const right = keys['ArrowRight'] || keys['KeyD'];
-    const run   = keys['ShiftLeft']  || keys['ShiftRight'];
-    const jump  = keys['Space']      || keys['ArrowUp'] || keys['KeyW'];
-
-    const acc = run ? RUN_ACC : MOVE_ACC;
-    const maxV = run ? MAX_RUN : MAX_WALK;
-    if (left)  { player.vx -= acc; player.facing = -1; }
-    if (right) { player.vx += acc; player.facing = 1; }
-    if (!left && !right) player.vx *= FRICTION;
-    if (Math.abs(player.vx) < 0.05) player.vx = 0;
-    player.vx = Math.max(-maxV, Math.min(maxV, player.vx));
-
-    // Edge-triggered jump: only fire when the key transitions from up to down
-    const jumpPressed = jump && !player.jumpKeyHeld;
-    player.jumpKeyHeld = jump;
-
-    if (jumpPressed && player.jumpsUsed < MAX_JUMPS) {
-      const isFirstJump = player.onGround || player.jumpsUsed === 0;
-      player.vy = isFirstJump ? JUMP_V : JUMP2_V;
-      player.onGround = false;
-      player.jumpsUsed = isFirstJump ? 1 : 2;
-
-      if (isFirstJump) Audio.jump();
-      else {
-        Audio.doubleJump();
-        rings.push({
-          x: player.x + player.w/2,
-          y: player.y + player.h - 4,
-          r: 4, life: 18, maxLife: 18, color: '#ff6acb'
-        });
-      }
-    }
-    // Variable jump height: cut upward velocity short if key released early
-    if (!jump && player.vy < -4) player.vy = -4;
-
-    // Apex hang: gentler gravity near the top of a jump for that whimsical feel
-    let g;
-    if (player.vy > 0)            g = FALL_GRAVITY;
-    else if (player.vy > -2.5)    g = APEX_GRAVITY; // hang time band
-    else                          g = GRAVITY;
-    player.vy += g;
-    if (player.vy > MAX_FALL) player.vy = MAX_FALL;
-
-    player.h = player.big ? 64 : 44;
-
-    // ---- Update moving platforms first so player riding them moves with them ----
-    for (const mp of movingPlats) {
-      const oldX = mp.x, oldY = mp.y;
-      if (mp.axis === 'x') {
-        mp.x += mp.vx;
-        if (mp.x < mp.minX) { mp.x = mp.minX; mp.vx = -mp.vx; }
-        if (mp.x > mp.maxX) { mp.x = mp.maxX; mp.vx = -mp.vx; }
-      } else {
-        mp.y += mp.vy;
-        if (mp.y < mp.minY) { mp.y = mp.minY; mp.vy = -mp.vy; }
-        if (mp.y > mp.maxY) { mp.y = mp.maxY; mp.vy = -mp.vy; }
-      }
-      // If player is standing on top of this platform (within 4px above its top), carry them
-      if (player.onGround &&
-          player.x + player.w > mp.x && player.x < mp.x + mp.w &&
-          Math.abs((player.y + player.h) - mp.y) < 6) {
-        player.x += (mp.x - oldX);
-        player.y += (mp.y - oldY);
-      }
-      // Add platform to solids briefly for this frame's collision (then remove)
-      mp._asSolid = { x: mp.x, y: mp.y, w: mp.w, h: mp.h, type: 'mplat' };
-      solids.push(mp._asSolid);
-    }
-
-    moveAndCollide(player, player.vx, 0);
-    const wasInAir = !player.onGround;
-    const vyBeforeMove = player.vy;
-    moveAndCollide(player, 0, player.vy);
-    // landed this frame → refresh double jump
-    if (wasInAir && player.onGround) {
-      player.jumpsUsed = 0;
-      if (vyBeforeMove > 3) Audio.land();
-    }
-
-    // Remove the moving-platform proxies from solids (preserves them as separate list)
-    for (const mp of movingPlats) {
-      const idx = solids.indexOf(mp._asSolid);
-      if (idx >= 0) solids.splice(idx, 1);
-    }
-
-    // Spike collision — instant death
-    for (const sp of spikes) {
-      if (rectsOverlap(player, sp) && !player.dead) { killPlayer(); break; }
-    }
-
-    // Spring collision — bounce on top contact while moving downward
-    for (const sg of springs) {
-      if (sg.charge > 0) sg.charge--;
-      if (sg.charge === 0 &&
-          player.x + player.w > sg.x && player.x < sg.x + sg.w &&
-          player.y + player.h >= sg.y && player.y + player.h <= sg.y + sg.h + 4 &&
-          player.vy >= 0) {
-        player.vy = -16.5;       // big bounce — higher than normal jump
-        player.jumpsUsed = 1;     // double jump still available after a spring
-        player.onGround = false;
-        sg.charge = 12;           // visual squash + cooldown
-        Audio.spring();
-      }
-    }
-
-    if (player.y > LEVEL_H + 200) killPlayer();
-    if (player.invuln > 0) player.invuln--;
-
-    // Coins
-    for (const c of coins) {
-      if (c.taken) continue;
-      c.t += 0.15;
-      const pcx = player.x + player.w/2, pcy = player.y + player.h/2;
-      const dx = pcx - c.x, dy = pcy - c.y;
-      if (dx*dx + dy*dy < (c.r + 16)**2) {
-        c.taken = true; player.coins++; burst(c.x, c.y, '#ffd54a'); Audio.coin();
-      }
-    }
-
-    // Enemies
-    for (const e of enemies) {
-      if (!e.alive) { e.squashT++; continue; }
-      e.vxBase = e.type === 'devil' ? 1.0 : 1.2;
-      e.isEnemy = true;
-      if (e.type === 'devil') {
-        // float, hover up/down, no gravity
-        e.t = (e.t || 0) + 0.05;
-        e.x += e.vx;
-        e.y = e.baseY + Math.sin(e.t) * 14;
-        // horizontal bounce off walls
-        for (const s of solids) {
-          if (rectsOverlap(e, s)) {
-            if (e.vx > 0) e.x = s.x - e.w; else e.x = s.x + s.w;
-            e.vx = -e.vx;
-          }
-        }
-      } else {
-        e.vy += GRAVITY;
-        moveAndCollide(e, e.vx, 0);
-        moveAndCollide(e, 0, e.vy);
-      }
-      if (rectsOverlap(player, e)) {
-        if (player.invuln <= 0) {
-          if (player.big) { player.big = false; player.invuln = 90; player.vy = -6; Audio.hurt(); }
-          else killPlayer();
-        }
-      }
-    }
-
-    // Powerups
-    for (const p of powerups) {
-      if (p.emerging > 0) { p.y -= 1.4; p.emerging--; continue; }
-      p.vy += GRAVITY*0.7;
-      moveAndCollide(p, p.vx, 0);
-      if (p.vx === 0) p.vx = 1.5;
-      moveAndCollide(p, 0, p.vy);
-      if (rectsOverlap(player, p) && !p.taken) {
-        p.taken = true;
-        if (!player.big) { player.big = true; player.y -= 20; }
-        else player.coins += 1;
-        burst(p.x+p.w/2, p.y, '#ff5cb8');
-        Audio.powerup();
-      }
-    }
-    for (let i = powerups.length-1; i >= 0; i--) if (powerups[i].taken || powerups[i].y > LEVEL_H+100) powerups.splice(i,1);
-
-    // Portal collision — advance to next level (or final victory)
-    if (Math.abs(player.x + player.w/2 - portalX) < 28 && !player.won) {
-      Audio.portal();
-      if (currentLevel + 1 < LEVEL_ORDER.length) {
-        // brief "level cleared" message, then advance
-        showMsg('Level cleared! Onward…');
-        setTimeout(() => { hideMsg(); advanceLevel(); }, 1100);
-        player.won = true; // freeze player while transition runs
-        // unfreeze after we load
-        setTimeout(() => { player.won = false; }, 1200);
-      } else {
-        player.won = true;
-        showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Crystals: ' + player.coins + ' — press R to play again');
-      }
-    }
-
-    // Particles
-    for (const pa of particles) { pa.x += pa.vx; pa.y += pa.vy; pa.vy += 0.25; pa.life--; }
-    for (let i = particles.length-1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i,1);
-
-    // Popping coins (Mario-style): arc up, fall back, award on land or after life expires
-    for (const pc of popCoins) {
-      pc.t++;
-      pc.vy += 0.5; // gravity
-      pc.x += pc.vx; pc.y += pc.vy;
-      pc.life--;
-      // Award the coin once when it starts falling or expires
-      if (!pc.awarded && (pc.vy >= 0 || pc.life <= 0)) {
-        // award when peak reached
-        if (pc.vy >= 0) {
-          pc.awarded = true;
-          player.coins++;
-          burst(pc.x, pc.y, '#ffd54a');
-        }
-      }
-    }
-    for (let i = popCoins.length-1; i >= 0; i--) if (popCoins[i].life <= 0) popCoins.splice(i,1);
-
-    // Block bump animations
-    for (const b of blocks) if (b.bumpT) b.bumpT--;
-
-    // Expanding rings
-    for (const r of rings) { r.r += 2.6; r.life--; }
-    for (let i = rings.length - 1; i >= 0; i--) if (rings[i].life <= 0) rings.splice(i, 1);
-
-    // Ambient particles
-    for (const a of ambient) {
-      a.x += a.vx; a.y += a.vy; a.life--;
-      if (a.life <= 0 || a.y < -10) {
-        a.x = Math.random()*W; a.y = H + 10;
-        a.life = 200 + Math.random()*300;
-        a.vx = (Math.random()-.5)*.3;
-        a.vy = -0.2 - Math.random()*0.4;
-        a.size = 1 + Math.random()*2;
-        a.hue = Math.random() < 0.5 ? '#ff6acb' : '#9cd6ff';
-      }
-    }
-
-    if (keys['KeyR']) { player.coins = 0; player.lives = 3; loadLevel(0); hideMsg(); }
-
-    updateCamera();
-  }
-
-  function killPlayer() {
-    if (player.dead) return;
-    player.dead = true; player.deathT = 0; player.vy = -10; player.vx = 0;
-    burst(player.x+player.w/2, player.y+player.h/2, '#88ccff');
-    Audio.death();
-  }
-
-  // ============ DRAWING ============
-
-  function drawSky() {
-    // night gradient
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#1a0e3a');
-    g.addColorStop(0.5, '#2a134a');
-    g.addColorStop(1, '#0f0820');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
-    // soft magenta haze near top
-    const g2 = ctx.createRadialGradient(W*0.6, H*0.3, 20, W*0.6, H*0.3, 400);
-    g2.addColorStop(0, 'rgba(255, 80, 180, 0.18)');
-    g2.addColorStop(1, 'rgba(255, 80, 180, 0)');
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
-
-    // distant ruins silhouette (parallax 0.15)
-    const offX1 = camX * 0.15;
-    ctx.fillStyle = '#1a0f30';
-    for (let i = -1; i < 8; i++) {
-      const bx = i * 380 - (offX1 % 380);
-      // a clump of arches
-      ctx.fillRect(bx + 20, H*0.45, 80, H*0.25);
-      ctx.fillRect(bx + 130, H*0.40, 60, H*0.30);
-      ctx.fillRect(bx + 220, H*0.50, 90, H*0.20);
-      // arch top
-      ctx.beginPath(); ctx.arc(bx + 60, H*0.45, 40, Math.PI, 0); ctx.fill();
-      ctx.beginPath(); ctx.arc(bx + 160, H*0.40, 30, Math.PI, 0); ctx.fill();
-    }
-
-    // mid trees (parallax 0.35)
-    const offX2 = camX * 0.35;
-    for (let i = -1; i < 10; i++) {
-      const tx = i * 220 - (offX2 % 220);
-      drawTree(tx, H*0.55, 130, '#0a0820', '#1f1145');
-    }
-
-    // near trees (parallax 0.6)
-    const offX3 = camX * 0.6;
-    for (let i = -1; i < 12; i++) {
-      const tx = i * 180 - (offX3 % 180);
-      drawTree(tx + 40, H*0.62, 110, '#070414', '#150a30');
-    }
-  }
-
-  function drawTree(x, baseY, h, trunk, foliage) {
-    // trunk
-    ctx.fillStyle = trunk;
-    ctx.fillRect(x - 6, baseY - h*0.3, 12, h*0.3);
-    // foliage clusters
-    ctx.fillStyle = foliage;
-    ctx.beginPath();
-    ctx.arc(x, baseY - h*0.5, h*0.30, 0, Math.PI*2);
-    ctx.arc(x - h*0.18, baseY - h*0.4, h*0.22, 0, Math.PI*2);
-    ctx.arc(x + h*0.18, baseY - h*0.4, h*0.22, 0, Math.PI*2);
-    ctx.arc(x, baseY - h*0.7, h*0.25, 0, Math.PI*2);
-    ctx.fill();
-    // teal highlights
-    ctx.fillStyle = 'rgba(60, 180, 200, 0.15)';
-    ctx.beginPath(); ctx.arc(x - 6, baseY - h*0.55, h*0.10, 0, Math.PI*2); ctx.fill();
-  }
-
-  function drawAmbient() {
-    for (const a of ambient) {
-      ctx.globalAlpha = Math.min(1, a.life / 200) * 0.85;
-      ctx.fillStyle = a.hue;
-      ctx.shadowColor = a.hue; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.arc(a.x, a.y, a.size, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-    // sparkle sprite drifting in the foreground occasionally
-    const sx = (animT * 0.5) % (W + 200) - 100;
-    ctx.globalAlpha = 0.55;
-    ctx.drawImage(ASSETS.sparkles, sx, 80 + Math.sin(animT * 0.04) * 20, 90, 78);
-    ctx.drawImage(ASSETS.sparkles, (sx + W*0.5) % (W + 200) - 100, 200 + Math.cos(animT * 0.03) * 24, 70, 60);
-    ctx.globalAlpha = 1;
-  }
-
-  // Tile drawing — uses painted sprites
-  function drawTile(s) {
-    const x = s.x - camX, y = s.y;
-    if (x + s.w < -40 || x > W + 40) return;
-    const above = y - TILE;
-    const isTop = !solids.some(o => o.x === s.x && o.y === above);
-
-    if (s.type === 'ground') {
-      // Below the topmost row, just dark stone fill so the painted top doesn't repeat in the dirt
-      if (!isTop) {
-        ctx.fillStyle = '#1a1230';
-        ctx.fillRect(x, y, s.w, s.h);
-        // subtle vertical join
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.fillRect(x, y, s.w, 2);
-      } else {
-        // Top row uses the painted grass block, alternating two variants for variety
-        const useAlt = ((s.x / TILE) % 3 === 0) && ASSETS.grass2;
-        const img = useAlt ? ASSETS.grass2 : ASSETS.grass1;
-        // The painted tile has grass extending above the rect; draw it slightly larger and bottom-anchored.
-        const drawW = TILE + 2; // tiny overlap to hide seams
-        const drawH = TILE + 8;
-        ctx.drawImage(img, x - 1, y - 4, drawW, drawH);
-      }
-    } else if (s.type === 'brick' || s.type === 'question') {
-      // Floating platform: use grass_vines sprite as the visible top
-      const b = s.ref || blocks.find(o => o.x === s.x && o.y === s.y);
-      const bump = (b && b.bumpT) ? -Math.sin((8 - b.bumpT) / 8 * Math.PI) * 6 : 0;
-      ctx.save();
-      ctx.translate(0, bump);
-      // body: tile dark stone fill
-      ctx.fillStyle = '#1a1230';
-      ctx.fillRect(x, y + 4, s.w, s.h - 4);
-      if (s.type === 'question') {
-        // glowing pink ? cube on top of the platform tile
-        const glow = b && !b.hit ? Math.sin(animT*0.1) * 0.3 + 0.7 : 0;
-        ctx.shadowColor = '#ff6acb'; ctx.shadowBlur = 14 * glow;
-        const g = ctx.createLinearGradient(0, y, 0, y + s.h);
-        g.addColorStop(0, b && b.hit ? '#5a4a3a' : '#ff8de0');
-        g.addColorStop(1, b && b.hit ? '#3a2a1a' : '#a040a0');
-        ctx.fillStyle = g; ctx.fillRect(x + 2, y + 2, s.w - 4, s.h - 4);
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#3a1a3a'; ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, s.w - 4, s.h - 4);
-        if (!(b && b.hit)) {
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 26px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText('?', x + s.w/2, y + s.h/2 + 2);
-        }
-      } else {
-        // brick: paint the grass-vines sprite as the visible top & vines when topmost
-        if (isTop) {
-          ctx.drawImage(ASSETS.vines, x - 4, y - 6, TILE + 8, TILE + 18);
-        } else {
-          ctx.fillStyle = '#1a1230';
-          ctx.fillRect(x, y, s.w, s.h);
-        }
-      }
-      ctx.restore();
-    } else if (s.type === 'pillar') {
-      // moss-topped stone pillar: dark stone column + grass top sprite
-      ctx.fillStyle = '#1a1230';
-      ctx.fillRect(x + 2, y, s.w - 4, s.h);
-      ctx.strokeStyle = '#0a0420'; ctx.lineWidth = 2;
-      ctx.strokeRect(x + 2, y, s.w - 4, s.h);
-      if (isTop) {
-        ctx.drawImage(ASSETS.grass1, x - 1, y - 4, TILE + 2, TILE + 8);
-      }
-    }
-  }
-
-  // Vines now drawn into the sprite (grass_vines includes hanging vines).
-  function drawVines() {}
-
-  function drawSpikes() {
-    for (const sp of spikes) {
-      const x = sp.x - camX, y = sp.y;
-      if (x + sp.w < 0 || x > W) continue;
-      // base
-      ctx.fillStyle = '#1a0e30';
-      ctx.fillRect(x, y + sp.h - 4, sp.w, 4);
-      // 3 sharp pink-tipped spikes
-      const spikeCount = 3;
-      const w = sp.w / spikeCount;
-      for (let i = 0; i < spikeCount; i++) {
-        const sx = x + i * w;
-        const grad = ctx.createLinearGradient(0, y, 0, y + sp.h);
-        grad.addColorStop(0, '#ff5cb8');
-        grad.addColorStop(0.5, '#a02080');
-        grad.addColorStop(1, '#3a0a3a');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(sx, y + sp.h - 2);
-        ctx.lineTo(sx + w/2, y);
-        ctx.lineTo(sx + w, y + sp.h - 2);
-        ctx.closePath(); ctx.fill();
-        // highlight
-        ctx.fillStyle = 'rgba(255, 200, 240, 0.45)';
-        ctx.beginPath();
-        ctx.moveTo(sx + w*0.35, y + sp.h - 6);
-        ctx.lineTo(sx + w/2, y + 2);
-        ctx.lineTo(sx + w*0.45, y + 8);
-        ctx.closePath(); ctx.fill();
-      }
-    }
-  }
-
-  function drawSprings() {
-    for (const sg of springs) {
-      const x = sg.x - camX, y = sg.y;
-      if (x + sg.w < 0 || x > W) continue;
-      const compress = sg.charge > 0 ? Math.sin((12 - sg.charge) / 12 * Math.PI) * 6 : 0;
-      // base plate
-      ctx.fillStyle = '#2a1845';
-      ctx.fillRect(x, y + sg.h - 4, sg.w, 4);
-      // coil — three pink/white bands
-      const top = y + compress;
-      const bandH = (sg.h - 6 - compress) / 3;
-      for (let i = 0; i < 3; i++) {
-        const by = top + i * bandH;
-        const grad = ctx.createLinearGradient(0, by, 0, by + bandH);
-        grad.addColorStop(0, '#ff8de0');
-        grad.addColorStop(1, '#a040a0');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x + 2, by, sg.w - 4, bandH * 0.8);
-      }
-      // glow
-      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 10;
-      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(x + 1, top, sg.w - 2, sg.h - compress - 4);
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  function drawMovingPlats() {
-    for (const mp of movingPlats) {
-      const x = mp.x - camX, y = mp.y;
-      if (x + mp.w < 0 || x > W) continue;
-      // soft glow trail
-      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 12;
-      // top rim (mossy)
-      ctx.fillStyle = '#1b8a40';
-      ctx.fillRect(x, y, mp.w, 4);
-      ctx.fillStyle = '#4dd07a';
-      ctx.fillRect(x, y, mp.w, 2);
-      // body — dark stone with cyan undertone
-      const grad = ctx.createLinearGradient(0, y + 4, 0, y + mp.h);
-      grad.addColorStop(0, '#3a2a55');
-      grad.addColorStop(1, '#1a1230');
-      ctx.fillStyle = grad;
-      ctx.fillRect(x, y + 4, mp.w, mp.h - 4);
-      // rune dots
-      ctx.fillStyle = '#9cd6ff';
-      for (let i = 0; i < 3; i++) ctx.fillRect(x + 8 + i * (mp.w - 24) / 2, y + 7, 3, 3);
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  // Decorative grass bushes scattered on top of ground tiles
-  function drawDecor() {
-    // Place a few bushes deterministically based on tile x to avoid flicker
-    for (const s of solids) {
-      if (s.type !== 'ground') continue;
-      const above = s.y - TILE;
-      const isTop = !solids.some(o => o.x === s.x && o.y === above);
-      if (!isTop) continue;
-      const x = s.x - camX;
-      if (x + TILE < 0 || x > W) continue;
-      const seed = ((s.x / TILE) * 1303) % 17;
-      if (seed === 3) {
-        // bush
-        ctx.drawImage(ASSETS.bush, x - 6, s.y - TILE + 14, TILE + 12, TILE);
-      } else if (seed === 7) {
-        // plant
-        ctx.drawImage(ASSETS.plant, x + 4, s.y - TILE + 6, TILE - 8, TILE);
-      }
-    }
-  }
-
-  function drawCoin(c) {
-    if (c.taken) return;
-    const x = c.x - camX, y = c.y;
-    if (x < -30 || x > W + 30) return;
-    // 2-frame coin spin (alternates ~ every 12 frames)
-    const frame = Math.floor((animT + c.t * 5) / 12) % 2;
-    const img = frame === 0 ? ASSETS.coin1 : ASSETS.coin2;
-    const w = 28, h = 38;
-    // bob slightly
-    const bob = Math.sin(animT * 0.08 + c.t) * 2;
-    ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 14;
-    ctx.drawImage(img, x - w/2, y - h/2 + bob, w, h);
-    ctx.shadowBlur = 0;
-  }
-
-  function drawEnemy(e) {
-    const x = e.x - camX, y = e.y;
-    if (x + e.w < 0 || x > W) return;
-    if (!e.alive) {
-      ctx.fillStyle = '#3a1a4a';
-      ctx.fillRect(x, y + e.h - 8, e.w, 8);
-      return;
-    }
-    if (e.type === 'spiky') {
-      // glowing pink ground enemy with spikes
-      ctx.shadowColor = '#ff3aa8'; ctx.shadowBlur = 14;
-      ctx.fillStyle = '#a02080';
-      // body
-      ctx.beginPath(); ctx.arc(x + e.w/2, y + e.h/2, e.w/2, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      // pink rim
-      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(x + e.w/2, y + e.h/2, e.w/2 - 1, 0, Math.PI*2); ctx.stroke();
-      // spikes around top
-      ctx.fillStyle = '#ff5cb8';
-      const cx = x + e.w/2, cy = y + e.h/2, rr = e.w/2;
-      for (let i = 0; i < 8; i++) {
-        const ang = (i / 8) * Math.PI * 2 - Math.PI/2;
-        const px1 = cx + Math.cos(ang - 0.15) * rr;
-        const py1 = cy + Math.sin(ang - 0.15) * rr;
-        const px2 = cx + Math.cos(ang + 0.15) * rr;
-        const py2 = cy + Math.sin(ang + 0.15) * rr;
-        const px3 = cx + Math.cos(ang) * (rr + 7);
-        const py3 = cy + Math.sin(ang) * (rr + 7);
-        ctx.beginPath(); ctx.moveTo(px1, py1); ctx.lineTo(px3, py3); ctx.lineTo(px2, py2); ctx.closePath(); ctx.fill();
-      }
-      // angry eyes
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(cx - 6, cy - 2, 4, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + 6, cy - 2, 4, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.arc(cx - 6 + (e.vx<0?-1:1), cy - 1, 2, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + 6 + (e.vx<0?-1:1), cy - 1, 2, 0, Math.PI*2); ctx.fill();
-    } else if (e.type === 'devil') {
-      // floating purple devil with horns and red eyes
-      ctx.shadowColor = '#c038ff'; ctx.shadowBlur = 16;
-      const cx = x + e.w/2, cy = y + e.h/2;
-      ctx.fillStyle = '#5a1880';
-      ctx.beginPath(); ctx.arc(cx, cy, e.w/2, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      // pink rim
-      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, e.w/2 - 1, 0, Math.PI*2); ctx.stroke();
-      // horns
-      ctx.fillStyle = '#3a0a55';
-      ctx.beginPath();
-      ctx.moveTo(cx - 10, cy - e.h/2 + 3); ctx.lineTo(cx - 6, cy - e.h/2 - 12); ctx.lineTo(cx - 2, cy - e.h/2 + 1); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(cx + 2, cy - e.h/2 + 1); ctx.lineTo(cx + 6, cy - e.h/2 - 12); ctx.lineTo(cx + 10, cy - e.h/2 + 3); ctx.closePath(); ctx.fill();
-      // glowing red eyes
-      ctx.shadowColor = '#ff3030'; ctx.shadowBlur = 8;
-      ctx.fillStyle = '#ff3030';
-      ctx.beginPath(); ctx.arc(cx - 6, cy, 3.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + 6, cy, 3.5, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      // jagged mouth
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx - 6, cy + 8); ctx.lineTo(cx - 3, cy + 5); ctx.lineTo(cx, cy + 8); ctx.lineTo(cx + 3, cy + 5); ctx.lineTo(cx + 6, cy + 8);
-      ctx.stroke();
-    }
-  }
-
-  function drawPowerup(p) {
-    const x = p.x - camX, y = p.y;
-    if (x + p.w < 0 || x > W) return;
-    ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 14;
-    ctx.drawImage(ASSETS.gem, x - 2, y - 4, p.w + 4, p.h + 8);
-    ctx.shadowBlur = 0;
-  }
-
-  // Glowing magenta swirl portal as the goal — uses stone_arch + portal_swirl sprites
-  function drawPortalSprite() {
-    const x = portalX - camX;
-    const groundTop = 440;
-    const archW = 100;
-    const archH = 170;
-    const archBottom = groundTop + 4;
-    const archTop = archBottom - archH;
-    const innerYc = archTop + archH * 0.42;
-    if (x < -120 || x > W + 120) return;
-
-    // outer ambient glow
-    const glow = ctx.createRadialGradient(x, innerYc, 4, x, innerYc, 110);
-    glow.addColorStop(0, 'rgba(255, 80, 200, 0.45)');
-    glow.addColorStop(0.5, 'rgba(255, 60, 180, 0.18)');
-    glow.addColorStop(1, 'rgba(255, 60, 180, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(x - 120, innerYc - 120, 240, 240);
-
-    // animated swirl behind the arch
-    const swirlW = archW * 0.55, swirlH = archW * 0.55;
-    ctx.save();
-    ctx.translate(x, innerYc);
-    ctx.rotate(animT * 0.03);
-    ctx.shadowColor = '#ff3aa8'; ctx.shadowBlur = 18;
-    ctx.drawImage(ASSETS.swirl, -swirlW/2, -swirlH/2, swirlW, swirlH);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-
-    // stone arch on top
-    ctx.drawImage(ASSETS.arch, x - archW/2, archTop, archW, archH);
-
-    // little particles drawn around it
-    for (let i = 0; i < 4; i++) {
-      const t = (animT * 0.05 + i * 1.5) % (Math.PI * 2);
-      const r = 40 + Math.sin(t * 2) * 12;
-      const px = x + Math.cos(t) * r;
-      const py = innerYc + Math.sin(t) * r * 0.5;
-      ctx.fillStyle = 'rgba(255, 180, 230, 0.85)';
-      ctx.beginPath(); ctx.arc(px, py, 1.8, 0, Math.PI*2); ctx.fill();
-    }
-  }
-  function drawPortal() { drawPortalSprite(); }
-  // legacy procedural portal kept inline below in case we ever want to fall back
-  function _drawPortalOld() {
-    const x = portalX - camX;
-    const groundTop = 440;
-    const archW = 70;
-    const archH = 110;
-    const archBottom = groundTop;
-    const archTop = archBottom - archH;
-    const yc = (archTop + archBottom) / 2;
-    if (x < -120 || x > W + 120) return;
-
-    // ---- Outer ambient glow behind the portal (radial)
-    const outerGlow = ctx.createRadialGradient(x, yc, 4, x, yc, 90);
-    outerGlow.addColorStop(0, 'rgba(255, 80, 200, 0.45)');
-    outerGlow.addColorStop(0.5, 'rgba(255, 60, 180, 0.18)');
-    outerGlow.addColorStop(1, 'rgba(255, 60, 180, 0)');
-    ctx.fillStyle = outerGlow;
-    ctx.fillRect(x - 100, yc - 100, 200, 200);
-
-    // ---- Stone arch frame (outer)
-    ctx.fillStyle = '#2a1845';
-    // sides
-    ctx.fillRect(x - archW/2, archTop + 22, 12, archH - 22);
-    ctx.fillRect(x + archW/2 - 12, archTop + 22, 12, archH - 22);
-    // top arch
-    ctx.beginPath();
-    ctx.moveTo(x - archW/2, archTop + 22);
-    ctx.arc(x, archTop + 22, archW/2, Math.PI, 0);
-    ctx.lineTo(x + archW/2, archTop);
-    ctx.arc(x, archTop, archW/2, 0, Math.PI, true);
-    ctx.closePath();
-    ctx.fill();
-    // base stones
-    ctx.fillStyle = '#1a0e30';
-    ctx.fillRect(x - archW/2 - 8, archBottom - 14, archW + 16, 14);
-    // brick lines on the arch
-    ctx.strokeStyle = '#1a0a30'; ctx.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
-      const py = archTop + 30 + i * 16;
-      ctx.beginPath(); ctx.moveTo(x - archW/2 + 2, py); ctx.lineTo(x - archW/2 + 12, py); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + archW/2 - 12, py); ctx.lineTo(x + archW/2 - 2, py); ctx.stroke();
-    }
-
-    // ---- Swirl interior (clipped to the inner arch shape)
-    ctx.save();
-    ctx.beginPath();
-    const innerW = archW - 24;
-    const innerH = archH - 26;
-    const innerTop = archTop + 18;
-    const innerBottom = archBottom - 6;
-    ctx.moveTo(x - innerW/2, innerBottom);
-    ctx.lineTo(x - innerW/2, innerTop + innerW/2);
-    ctx.arc(x, innerTop + innerW/2, innerW/2, Math.PI, 0);
-    ctx.lineTo(x + innerW/2, innerBottom);
-    ctx.closePath();
-    ctx.clip();
-
-    // background of the portal interior
-    const innerYc = (innerTop + innerBottom) / 2;
-    const innerGlow = ctx.createRadialGradient(x, innerYc, 4, x, innerYc, innerH/1.4);
-    innerGlow.addColorStop(0, '#fff5ff');
-    innerGlow.addColorStop(0.2, '#ff8de0');
-    innerGlow.addColorStop(0.7, '#a020a0');
-    innerGlow.addColorStop(1, '#3a0a3a');
-    ctx.fillStyle = innerGlow;
-    ctx.fillRect(x - innerW, innerTop - 10, innerW*2, innerH + 20);
-
-    // swirling spiral arms
-    ctx.translate(x, innerYc);
-    ctx.rotate(animT * 0.05);
-    for (let i = 0; i < 4; i++) {
-      const ang = (i / 4) * Math.PI * 2;
-      ctx.save();
-      ctx.rotate(ang);
-      ctx.fillStyle = `rgba(255, 200, 240, ${0.55 - i*0.05})`;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      // spiral arm using a curve outward
-      ctx.quadraticCurveTo(innerW*0.3, -innerH*0.1, innerW*0.6, -innerH*0.05);
-      ctx.quadraticCurveTo(innerW*0.4, innerH*0.1, 0, 4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // bright core
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#ff6acb'; ctx.shadowBlur = 30;
-    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
-
-    ctx.restore();
-
-    // little floating particles sucked into the portal
-    for (let i = 0; i < 5; i++) {
-      const t = (animT * 0.05 + i * 1.2) % (Math.PI * 2);
-      const r = 30 + Math.sin(t * 2) * 10;
-      const px = x + Math.cos(t) * r;
-      const py = innerYc + Math.sin(t) * r * 0.6;
-      ctx.fillStyle = 'rgba(255, 180, 230, 0.8)';
-      ctx.beginPath(); ctx.arc(px, py, 1.5, 0, Math.PI*2); ctx.fill();
-    }
-  }
-
-  // Wood signpost at the start — uses sign sprite
-  function drawSign() {
-    const x = startX + 60 - camX;
-    const baseY = 440;  // ground top
-    if (x < -50 || x > W + 50) return;
-    const w = 50, h = 62;
-    ctx.drawImage(ASSETS.sign, x - w/2, baseY - h, w, h);
-  }
-
-  // Pick the right animation frame based on player state
-  function getPlayerFrame() {
-    if (player.invuln > 30) return ASSETS.hurt;
-    if (!player.onGround) {
-      // jump arc: rising = jump1/2, peak = jump2, falling = jump3
-      if (player.vy < -3) return ASSETS.jump1;
-      if (player.vy < 3)  return ASSETS.jump2;
-      return ASSETS.jump3;
-    }
-    if (Math.abs(player.vx) > 0.5) {
-      // run cycle, faster when running faster
-      const speed = Math.min(1, Math.abs(player.vx) / MAX_RUN);
-      const t = Math.floor(animT * (0.18 + 0.18 * speed)) % 3;
-      return [ASSETS.run1, ASSETS.run2, ASSETS.run3][t];
-    }
-    // idle 2-frame breathing
-    return Math.floor(animT * 0.05) % 2 === 0 ? ASSETS.idle1 : ASSETS.idle2;
-  }
-
-  function drawPlayer() {
-    const x = player.x - camX, y = player.y;
-    if (player.invuln > 0 && player.invuln <= 30 && Math.floor(player.invuln/3) % 2 === 0) return;
-    const img = getPlayerFrame();
-    if (!img || !img.width) return;
-    // Crop the bottom ~16% of the source sprite to remove the pink magical ring under the feet.
-    const sx = 0, sy = 0;
-    const sw = img.width;
-    const sh = Math.floor(img.height * 0.84);
-    // Scale so character height is roughly 1.85x player.h, keep aspect ratio
-    const targetH = player.h * 1.55;
-    const aspect = sw / sh;
-    const targetW = targetH * aspect;
-    const dx = x + player.w/2 - targetW/2;
-    const dy = y + player.h - targetH; // bottom-aligned
-    ctx.save();
-    if (player.facing < 0) {
-      ctx.translate(dx + targetW, dy);
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
-    } else {
-      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, targetW, targetH);
-    }
-    ctx.restore();
-  }
-
-  function drawRings() {
-    for (const r of rings) {
-      const alpha = Math.max(0, r.life / r.maxLife) * 0.7;
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = r.color;
-      ctx.lineWidth = 2.5 * (r.life / r.maxLife);
-      ctx.shadowColor = r.color; ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.ellipse(r.x - camX, r.y, r.r, r.r * 0.45, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function drawPopCoins() {
-    for (const pc of popCoins) {
-      const x = pc.x - camX, y = pc.y;
-      if (x < -20 || x > W + 20) continue;
-      const frame = Math.floor(pc.t / 4) % 2;
-      const img = frame === 0 ? ASSETS.coin1 : ASSETS.coin2;
-      const w = 24, h = 32;
-      ctx.globalAlpha = Math.max(0, Math.min(1, pc.life / 30));
-      ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 14;
-      ctx.drawImage(img, x - w/2, y - h/2, w, h);
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  function drawParticles() {
-    for (const p of particles) {
-      ctx.globalAlpha = Math.max(0, p.life/30);
-      if (p.sprite === 'dust') {
-        const sz = p.size || 28;
-        ctx.drawImage(ASSETS.dust, p.x - camX - sz/2, p.y - sz/2, sz, sz * 0.8);
-      } else {
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x - camX - 2, p.y - 2, 4, 4);
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ---------- HUD (drawn on canvas) ----------
-  function drawHud() {
-    // panel backdrop
-    ctx.fillStyle = 'rgba(10, 5, 25, 0.65)';
-    ctx.beginPath();
-    roundRect(10, 10, 220, 56, 14);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 92, 184, 0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-
-    // mini player face avatar — uses idle1 sprite, clipped to a circle
-    ctx.save();
-    ctx.beginPath(); ctx.arc(36, 36, 20, 0, Math.PI*2); ctx.clip();
-    // dark fill behind
-    ctx.fillStyle = '#1a0a30'; ctx.fillRect(16, 16, 40, 40);
-    if (ASSETS.idle1.width) {
-      // crop face area: roughly upper 60% of sprite
-      const img = ASSETS.idle1;
-      ctx.drawImage(img, 0, 0, img.width, img.height * 0.7,  16, 14, 40, 44);
-    }
-    ctx.restore();
-    ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2;
-    ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.arc(36, 36, 20, 0, Math.PI*2); ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // hearts
-    const maxLives = 3;
-    for (let i = 0; i < maxLives; i++) {
-      const hx = 70 + i * 22, hy = 24;
-      drawHeart(hx, hy, 9, i < player.lives ? '#ff3a6a' : 'rgba(255,255,255,0.2)');
-    }
-
-    // orb icon + coin count
-    ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 10;
-    ctx.drawImage(ASSETS.orb, 70, 42, 18, 18);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('x ' + player.coins, 94, 51);
-
-    // level indicator (top-right area, leaves room for mute button)
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('LV ' + (currentLevel+1) + '/' + LEVEL_ORDER.length, W - 64, 24);
-  }
-
-  function drawHeart(cx, cy, r, color) {
-    ctx.shadowColor = color === 'rgba(255,255,255,0.2)' ? 'transparent' : '#ff3a6a';
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy + r*0.6);
-    ctx.bezierCurveTo(cx, cy, cx - r, cy, cx - r, cy - r*0.3);
-    ctx.bezierCurveTo(cx - r, cy - r, cx, cy - r*0.7, cx, cy - r*0.2);
-    ctx.bezierCurveTo(cx, cy - r*0.7, cx + r, cy - r, cx + r, cy - r*0.3);
-    ctx.bezierCurveTo(cx + r, cy, cx, cy, cx, cy + r*0.6);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  function drawLevelBanner() {
-    if (levelEnterT > 0) {
-      levelEnterT--;
-      const alpha = levelEnterT > 60 ? 1 : levelEnterT / 60;
-      const name = LEVEL_ORDER[currentLevel];
-      ctx.save();
-      ctx.globalAlpha = alpha * 0.85;
-      ctx.fillStyle = '#0a0716';
-      ctx.fillRect(0, H * 0.38, W, 90);
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = '#ff5cb8';
-      ctx.font = 'bold 14px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('LEVEL ' + (currentLevel + 1) + ' / ' + LEVEL_ORDER.length, W/2, H * 0.38 + 24);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 32px system-ui, sans-serif';
-      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 16;
-      ctx.fillText(name, W/2, H * 0.38 + 60);
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-  }
-
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x+r, y);
-    ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
-    ctx.closePath();
-  }
-
-  // ----- Loading screen -----
-  function drawLoading() {
-    ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('Loading… ' + assetsLoaded + ' / ' + assetsTotal, W/2, H/2 - 20);
-    // progress bar
-    const pw = 240, ph = 8;
-    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(W/2 - pw/2, H/2 + 10, pw, ph);
-    ctx.fillStyle = '#ff5cb8'; ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 10;
-    ctx.fillRect(W/2 - pw/2, H/2 + 10, pw * (assetsLoaded / assetsTotal), ph);
-    ctx.shadowBlur = 0;
-  }
-
-  // ----- Frame -----
-  function frame() {
-    if (!allAssetsReady()) {
-      drawLoading();
-      requestAnimationFrame(frame);
-      return;
-    }
-    update();
-    drawSky();
-    drawAmbient();
-    drawSign();
-    for (const s of solids) drawTile(s);
-    drawDecor();
-    drawPortal();
-    drawSpikes();
-    drawSprings();
-    drawMovingPlats();
-    for (const c of coins) drawCoin(c);
-    drawPopCoins();
-    for (const p of powerups) drawPowerup(p);
-    for (const e of enemies) drawEnemy(e);
-    drawPlayer();
-    drawRings();
-    drawParticles();
-    drawHud();
-    drawLevelBanner();
-    requestAnimationFrame(frame);
-  }
-
-  function showMsg(t) {
-    const el = document.getElementById('msg');
-    el.textContent = t; el.classList.add('show');
-  }
-  function hideMsg() { document.getElementById('msg').classList.remove('show'); }
-
-  frame();
-})();
-</script>
+  </script>
 </body>
 </html>
