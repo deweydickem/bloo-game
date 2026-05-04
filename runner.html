@@ -104,12 +104,10 @@
     };
   })();
 
-  // ----- Asset loading (we reuse the platformer's Blue Spirit sprite for clones) -----
+  // ----- Asset loading -----
+  // Top-down view of Bloo for the runner crowd
   const ASSET_LIST = {
-    idle:  'sprites/character/idle_1.png',
-    run1:  'sprites/character/run_1.png',
-    run2:  'sprites/character/run_2.png',
-    run3:  'sprites/character/run_3.png',
+    bloo:  'sprites/character/bloo_top.png',
   };
   const ASSETS = {};
   let assetsLoaded = 0, assetsTotal = Object.keys(ASSET_LIST).length;
@@ -293,8 +291,9 @@
   }
 
   function spawnBoss() {
+    // Spawn just above the visible top so it slides in fast (~1 second)
     boss = {
-      worldY: camY - H,            // appears just above the screen
+      worldY: camY - 90,           // 90px above viewport top, lands quickly
       hp: 80 + Math.floor(distance / 400) * 30,
       hpMax: 80 + Math.floor(distance / 400) * 30,
       w: LANE_W - 40,
@@ -436,10 +435,10 @@
 
     // Boss
     if (boss && !boss.defeated) {
-      // Boss settles at top quarter, blocks scroll
+      // Boss settles at top quarter, blocks scroll. Faster slide-in.
       const target = H * 0.18;
       boss.screenY = boss.worldY - camY;
-      if (boss.screenY < target) { boss.worldY += 1.6; }
+      if (boss.screenY < target) { boss.worldY += 4.5; }
       else { boss.worldY = camY + target; }
 
       // Bullet vs boss
@@ -648,25 +647,21 @@
   }
 
   function drawClones() {
-    // Sort by y so back clones draw first
+    // Sort by y so back clones draw first (smaller y first)
     const sorted = clones.slice().sort((a, b) => a.y - b.y);
     for (let i = 0; i < sorted.length; i++) {
       const c = sorted[i];
-      // Pick run frame based on individual t
-      const frame = Math.floor((c.t || 0)) % 3;
-      const img = [ASSETS.run1, ASSETS.run2, ASSETS.run3][frame];
+      const img = ASSETS.bloo;
+      // tiny bob with individual phase
+      const bob = Math.sin((c.t || 0) * 0.3) * 1.5;
+      const isLeader = (i === sorted.length - 1);
+      const size = isLeader ? 44 : 34;  // leader slightly bigger
       if (!img || !img.width) {
-        // Fallback shape
         ctx.fillStyle = '#1f6fd1';
-        ctx.beginPath(); ctx.arc(c.x, c.y, 9, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, c.y + bob, size * 0.4, 0, Math.PI*2); ctx.fill();
         continue;
       }
-      // Crop bottom 16% to remove pink ring
-      const sw = img.width, sh = Math.floor(img.height * 0.84);
-      const targetH = (i === sorted.length - 1) ? 56 : 44;  // leader bigger
-      const aspect = sw / sh;
-      const targetW = targetH * aspect;
-      ctx.drawImage(img, 0, 0, sw, sh, c.x - targetW/2, c.y - targetH + 8, targetW, targetH);
+      ctx.drawImage(img, c.x - size/2, c.y - size/2 + bob, size, size);
     }
   }
 
