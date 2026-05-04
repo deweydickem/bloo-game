@@ -2,15 +2,63 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0a0716" />
 <title>Blue Spirit — Forest of Embers</title>
 <style>
-  html, body { margin:0; padding:0; background:#0a0716; color:#e8d8ff; font-family: system-ui, sans-serif; height:100%; overflow:hidden; }
-  #wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-  canvas { background:#0a0716; box-shadow:0 0 60px rgba(255, 60, 170, 0.25), 0 12px 40px rgba(0,0,0,.7); border-radius:8px; }
+  html, body { margin:0; padding:0; background:#0a0716; color:#e8d8ff; font-family: system-ui, sans-serif; height:100%; overflow:hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  canvas {
+    background:#0a0716;
+    box-shadow:0 0 60px rgba(255, 60, 170, 0.25), 0 12px 40px rgba(0,0,0,.7);
+    border-radius:8px;
+    /* Scale to fit viewport while preserving 16:9 aspect ratio */
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+    image-rendering: auto;
+    display: block;
+  }
   #title { position:absolute; top:14px; left:14px; font-size:13px; opacity:.55; pointer-events:none; letter-spacing:.5px; }
   #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-  #overlay div { background:rgba(20, 8, 40, 0.85); padding:18px 28px; border-radius:10px; font-size:22px; display:none; border:2px solid #ff5cb8; box-shadow:0 0 30px rgba(255,92,184,.4); color:#fff; }
+  #overlay div { background:rgba(20, 8, 40, 0.85); padding:18px 28px; border-radius:10px; font-size:22px; display:none; border:2px solid #ff5cb8; box-shadow:0 0 30px rgba(255,92,184,.4); color:#fff; max-width: 80vw; text-align: center; }
   .show { display:block !important; }
+
+  /* ---------- Touch controls ---------- */
+  #touch {
+    position: fixed; inset: 0; pointer-events: none;
+    display: none; /* shown only when touch is detected */
+  }
+  #touch.on { display: block; }
+  .tbtn {
+    position: absolute;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: 78px; height: 78px;
+    border-radius: 50%;
+    background: rgba(20, 8, 40, 0.55);
+    border: 2px solid rgba(255, 92, 184, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 0 18px rgba(255, 92, 184, 0.25);
+    pointer-events: auto;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 28px; font-weight: bold;
+    transition: transform .08s ease, background .08s ease;
+    user-select: none; -webkit-user-select: none;
+  }
+  .tbtn:active, .tbtn.held {
+    transform: scale(0.92);
+    background: rgba(255, 92, 184, 0.35);
+  }
+  #btn-left  { left: max(20px, env(safe-area-inset-left)); }
+  #btn-right { left: calc(max(20px, env(safe-area-inset-left)) + 92px); }
+  #btn-jump  { right: max(20px, env(safe-area-inset-right)); }
+  #title.mobile { display: none; }
+  @media (hover: none) and (pointer: coarse) {
+    #title { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -19,6 +67,11 @@
   <canvas id="c" width="960" height="540"></canvas>
 </div>
 <div id="overlay"><div id="msg"></div></div>
+<div id="touch" aria-hidden="true">
+  <div id="btn-left"  class="tbtn" data-key="ArrowLeft">‹</div>
+  <div id="btn-right" class="tbtn" data-key="ArrowRight">›</div>
+  <div id="btn-jump"  class="tbtn" data-key="Space">↑</div>
+</div>
 <script>
 (() => {
   const canvas = document.getElementById('c');
@@ -31,6 +84,36 @@
   const keys = {};
   addEventListener('keydown', e => { keys[e.code] = true; if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault(); });
   addEventListener('keyup',   e => { keys[e.code] = false; });
+
+  // ----- Touch input — wire on-screen buttons to the same keys[] object -----
+  // (Wrapped in try so headless test environments without `window` don't crash.)
+  try {
+    const touchEl = document.getElementById('touch');
+    function enableTouchUI() { if (touchEl) touchEl.classList.add('on'); }
+    const hasTouch = (typeof window !== 'undefined') && (
+      ('ontouchstart' in window) ||
+      ((typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0)
+    );
+    if (hasTouch) enableTouchUI();
+    if (typeof addEventListener !== 'undefined') {
+      addEventListener('touchstart', enableTouchUI, { once: true });
+    }
+
+    const btns = ['btn-left','btn-right','btn-jump']
+      .map(id => document.getElementById(id))
+      .filter(b => b && b.dataset && b.addEventListener);
+    for (const b of btns) {
+      const code = b.dataset.key;
+      const press = (e) => { e.preventDefault(); keys[code] = true; b.classList.add('held'); };
+      const release = (e) => { e.preventDefault(); keys[code] = false; b.classList.remove('held'); };
+      b.addEventListener('touchstart', press, { passive: false });
+      b.addEventListener('touchend',   release, { passive: false });
+      b.addEventListener('touchcancel', release, { passive: false });
+      b.addEventListener('mousedown', press);
+      b.addEventListener('mouseup',   release);
+      b.addEventListener('mouseleave', release);
+    }
+  } catch (e) { /* ignore — non-browser env */ }
 
   // ----- Asset loading -----
   const ASSET_LIST = {
