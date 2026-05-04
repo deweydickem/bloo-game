@@ -42,7 +42,7 @@
 <div id="wrap"><canvas id="c" width="540" height="960"></canvas></div>
 <a id="btn-back" href="index.html">‹ MENU</a>
 <div id="btn-mute" title="Mute (M)">🔊</div>
-<div id="title-tip">Move: ← → / A D / drag &nbsp;·&nbsp; M to mute</div>
+<div id="title-tip">Steer: ← → / A D / drag &nbsp;·&nbsp; Fire: SPACE / tap &nbsp;·&nbsp; M to mute</div>
 
 <script>
 (() => {
@@ -125,19 +125,44 @@
   addEventListener('keydown', e => { keys[e.code] = true; });
   addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyM') { Audio.setMuted(!Audio.isMuted()); refreshMute(); } });
 
-  // Drag-to-steer on touch / mouse
-  let dragX = null, dragActive = false;
-  function onPointerDown(e){ Audio.ensure(); const p = e.touches ? e.touches[0] : e; dragX = p.clientX; dragActive = true; e.preventDefault && e.preventDefault(); }
-  function onPointerMove(e){ if (!dragActive) return; const p = e.touches ? e.touches[0] : e; if (!p) return; const dx = p.clientX - dragX; if (Math.abs(dx) > 1) { steerInput += dx * 0.0035; dragX = p.clientX; } e.preventDefault && e.preventDefault(); }
-  function onPointerUp(){ dragActive = false; dragX = null; }
-  let steerInput = 0; // -1..+1 desired horizontal speed
+  // Pointer input: drag to steer, quick tap to fire
+  let dragX = null, dragStartX = null, dragActive = false, dragMoved = 0, pointerStartT = 0;
+  let steerInput = 0;     // -1..+1 desired horizontal speed
+  let tapFire = false;    // one-frame impulse from a tap
+  let fireKeyHeld = false; // edge-trigger guard for keyboard / sustained touch
+
+  function onPointerDown(e){
+    Audio.ensure();
+    const p = e.touches ? e.touches[0] : e;
+    dragX = dragStartX = p.clientX;
+    dragActive = true; dragMoved = 0;
+    pointerStartT = performance.now ? performance.now() : Date.now();
+    e.preventDefault && e.preventDefault();
+  }
+  function onPointerMove(e){
+    if (!dragActive) return;
+    const p = e.touches ? e.touches[0] : e; if (!p) return;
+    const dx = p.clientX - dragX;
+    if (Math.abs(dx) > 1) { steerInput += dx * 0.0035; dragX = p.clientX; dragMoved += Math.abs(dx); }
+    e.preventDefault && e.preventDefault();
+  }
+  function onPointerUp(e){
+    if (dragActive) {
+      const dt = (performance.now ? performance.now() : Date.now()) - pointerStartT;
+      // Quick, near-stationary press → treat as a tap → fire
+      if (dt < 250 && dragMoved < 8) tapFire = true;
+    }
+    dragActive = false; dragX = null;
+    e && e.preventDefault && e.preventDefault();
+  }
   canvas.addEventListener('touchstart', onPointerDown, { passive: false });
   canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-  canvas.addEventListener('touchend', onPointerUp);
+  canvas.addEventListener('touchend', onPointerUp, { passive: false });
+  canvas.addEventListener('touchcancel', onPointerUp, { passive: false });
   canvas.addEventListener('mousedown', onPointerDown);
   canvas.addEventListener('mousemove', onPointerMove);
   canvas.addEventListener('mouseup', onPointerUp);
-  canvas.addEventListener('mouseleave', onPointerUp);
+  canvas.addEventListener('mouseleave', () => { dragActive = false; dragX = null; });
 
   // Mute button
   const muteBtn = document.getElementById('btn-mute');
@@ -191,14 +216,19 @@
     Audio.cloneLost();
   }
 
-  // Bullets (auto-fired by clones)
+  // Bullets (player fires manually now)
   const bullets = [];
   let fireCooldown = 0;
-  const FIRE_INTERVAL = 8; // base frames between volleys
-  const enemyShots = []; // projectiles fired by casters and bosses
+  const FIRE_INTERVAL = 9;        // min frames between volleys (rate-limit click spam)
+  let firePressed = false;        // edge-trigger so holding doesn't auto-fire
+  const enemyShots = [];          // projectiles fired by casters and bosses
   function spawnEnemyShot(x, y, vx, vy, big) {
     enemyShots.push({ x, y, vx, vy, life: 240, big: !!big });
   }
+  // Score (separate from distance — earned by killing things)
+  let score = 0;
+  let bestScore = 0;
+  try { bestScore = parseInt(localStorage.getItem('bloo.runner.bestScore') || '0', 10); } catch(_) {}
 
   // Gates — span across the lane horizontally, two halves with different effects
   const gates = [];
@@ -229,9 +259,10 @@
     boss = null;
     leaderX = LANE_X + LANE_W / 2;
     spawnClones(3);
-    camY = 0; distance = 0; scrollSpeed = 4.4;
+    camY = 0; distance = 0; scrollSpeed = 4.4; score = 0;
     nextGateY = -200; nextEnemyY = -600; nextBossDistance = 800;
     gameOver = false; gameOverT = 0; steerInput = 0;
+    fireKeyHeld = false; tapFire = false;
   }
   reset();
 
@@ -349,9 +380,12 @@
   function update() {
     if (gameOver) { gameOverT++; return; }
     if (!started) {
-      // wait for any input
-      if (keys['ArrowLeft'] || keys['ArrowRight'] || keys['KeyA'] || keys['KeyD'] || dragActive || steerInput !== 0) started = true;
-      else return;
+      // any input starts the run
+      if (keys['ArrowLeft'] || keys['ArrowRight'] || keys['KeyA'] || keys['KeyD'] ||
+          keys['Space'] || dragActive || tapFire || steerInput !== 0) {
+        started = true;
+        tapFire = false; fireKeyHeld = true; // don't fire on the very first frame
+      } else return;
     }
 
     // Speed ramp — base 4.4, climbs to 9.5 by 2500m. Hits hard.
@@ -398,22 +432,33 @@
       nextBossDistance = distance + 700 + Math.random() * 300;  // bosses every ~800m
     }
 
-    // Auto-fire from clones (more clones → more bullets / faster)
+    // Manual fire — every clone fires one bullet, rate-limited
     fireCooldown--;
-    const interval = Math.max(2, FIRE_INTERVAL - Math.floor(clones.length / 8));
-    if (fireCooldown <= 0 && clones.length > 0) {
-      // Fire from a few random clones each volley
-      const volleySize = Math.min(clones.length, 1 + Math.floor(clones.length / 6));
-      const seen = new Set();
-      for (let i = 0; i < volleySize; i++) {
-        let idx = Math.floor(Math.random() * clones.length);
-        if (seen.has(idx)) continue; seen.add(idx);
+    const wantsFire = (keys['Space'] || tapFire) && !fireKeyHeld;
+    if (wantsFire && fireCooldown <= 0 && clones.length > 0) {
+      // Whole army fires together (capped to avoid extreme bullet counts)
+      const volleySize = Math.min(clones.length, 30);
+      // Pick distinct clones if possible
+      const indices = [];
+      if (clones.length <= volleySize) {
+        for (let i = 0; i < clones.length; i++) indices.push(i);
+      } else {
+        const seen = new Set();
+        while (indices.length < volleySize) {
+          const idx = Math.floor(Math.random() * clones.length);
+          if (!seen.has(idx)) { seen.add(idx); indices.push(idx); }
+        }
+      }
+      for (const idx of indices) {
         const c = clones[idx];
-        bullets.push({ x: c.x, y: c.y - 8, worldY: camY + (c.y - 8), vy: -10 });
+        bullets.push({ x: c.x + (Math.random()-0.5)*4, y: c.y - 8, worldY: camY + (c.y - 8), vy: -11 });
       }
       Audio.shoot();
-      fireCooldown = interval;
+      fireCooldown = FIRE_INTERVAL;
+      fireKeyHeld = true;
     }
+    if (!keys['Space'] && !tapFire) fireKeyHeld = false;
+    tapFire = false; // tapFire is a one-frame impulse from touch
 
     // Update bullets (in world coords; convert to screen for display)
     for (const b of bullets) {
@@ -452,7 +497,7 @@
       }
     }
 
-    // Bullet vs enemy collision
+    // Bullet vs enemy collision (kills award points)
     for (const b of bullets) {
       for (const e of enemies) {
         if (e.hp <= 0) continue;
@@ -461,8 +506,13 @@
           e.hp--;
           b.dead = true;
           burst(b.x, b.y, '#ffffff', 4);
-          if (e.hp <= 0) { Audio.enemyKill(); burst(e.x, e.screenY, '#a020a0', 12); }
-          else Audio.enemyHit();
+          if (e.hp <= 0) {
+            Audio.enemyKill(); burst(e.x, e.screenY, '#a020a0', 12);
+            // Score: more for tougher enemies, scales with distance
+            const base = e.type === 'caster' ? 25 : 10;
+            const mult = 1 + Math.floor(distance / 1000);
+            score += base * mult;
+          } else Audio.enemyHit();
           break;
         }
       }
@@ -539,6 +589,9 @@
         boss.defeated = true; boss.defeatT = 0;
         Audio.bossDown();
         burst(boss.x + boss.w/2, boss.screenY + boss.h/2, '#ff5cb8', 40);
+        // Big score for the boss
+        const mult = 1 + Math.floor(distance / 1000);
+        score += 500 * mult;
       }
     }
     if (boss && boss.defeated) {
@@ -594,6 +647,10 @@
     if (Math.floor(distance) > bestDistance) {
       bestDistance = Math.floor(distance);
       try { localStorage.setItem('bloo.runner.best', String(bestDistance)); } catch(_) {}
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      try { localStorage.setItem('bloo.runner.bestScore', String(score)); } catch(_) {}
     }
   }
 
@@ -846,27 +903,46 @@
     ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 11px system-ui';
     ctx.fillText('CLONES', 76, 80);
 
-    // Distance, top-center
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(Math.floor(distance) + ' m', W/2, 76);
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = 'bold 10px system-ui';
-    ctx.fillText('BEST: ' + bestDistance + ' m', W/2, 92);
+    // SCORE — big, top-center, with best
+    ctx.fillStyle = 'rgba(10,5,25,0.7)';
+    roundRect(W/2 - 70, 60, 140, 44, 12); ctx.fill();
+    ctx.strokeStyle = 'rgba(156,214,255,0.45)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 8;
+    ctx.fillText(String(score), W/2, 78);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = 'bold 9px system-ui';
+    ctx.fillText('SCORE · BEST ' + bestScore, W/2, 96);
+
+    // Distance, secondary, below score
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(Math.floor(distance) + ' m  ·  best ' + bestDistance + ' m', W/2, 116);
+
+    // Fire-rate indicator: small bar shows FIRE cooldown
+    if (fireCooldown > 0) {
+      const pct = fireCooldown / FIRE_INTERVAL;
+      ctx.fillStyle = 'rgba(255,255,255,0.20)';
+      ctx.fillRect(14, 108, 124, 4);
+      ctx.fillStyle = 'rgba(156,214,255,0.7)';
+      ctx.fillRect(14, 108, 124 * (1 - pct), 4);
+    }
   }
 
   function drawTitle() {
     if (started) return;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(0, H*0.32, W, 180);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, H*0.30, W, 220);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 36px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('Crowd Runner', W/2, H*0.42);
+    ctx.fillText('Crowd Runner', W/2, H*0.40);
     ctx.fillStyle = '#ff8de0'; ctx.font = 'bold 14px system-ui';
-    ctx.fillText('STEER YOUR ARMY', W/2, H*0.46);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui';
-    ctx.fillText('← →  /  drag to steer', W/2, H*0.51);
-    ctx.fillText('PRESS ANY KEY OR TAP TO START', W/2, H*0.55);
+    ctx.fillText('STEER · FIRE · SURVIVE', W/2, H*0.44);
+    ctx.fillStyle = 'rgba(255,255,255,0.78)'; ctx.font = '14px system-ui';
+    ctx.fillText('← →  /  A D  /  drag — steer', W/2, H*0.49);
+    ctx.fillText('SPACE  /  tap — fire (each clone shoots)', W/2, H*0.53);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui';
+    ctx.fillText('PRESS ANY KEY OR TAP TO START', W/2, H*0.58);
   }
 
   function drawGameOver() {
@@ -877,13 +953,18 @@
     if (gameOverT > 20) {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 42px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('CROWD LOST', W/2, H*0.40);
-      ctx.fillStyle = '#ff8de0'; ctx.font = 'bold 18px system-ui';
-      ctx.fillText('Distance: ' + Math.floor(distance) + ' m', W/2, H*0.46);
+      ctx.fillText('CROWD LOST', W/2, H*0.36);
+      // Score is the primary stat now
+      ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 12;
+      ctx.fillStyle = '#ffd54a'; ctx.font = 'bold 56px system-ui';
+      ctx.fillText(String(score), W/2, H*0.46);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ff8de0'; ctx.font = 'bold 14px system-ui';
+      ctx.fillText('SCORE  ·  best ' + bestScore, W/2, H*0.50);
       ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui';
-      ctx.fillText('Best: ' + bestDistance + ' m', W/2, H*0.50);
+      ctx.fillText('Distance: ' + Math.floor(distance) + ' m  ·  best ' + bestDistance + ' m', W/2, H*0.55);
       ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui';
-      ctx.fillText('PRESS R TO PLAY AGAIN', W/2, H*0.58);
+      ctx.fillText('PRESS R TO PLAY AGAIN', W/2, H*0.62);
     }
   }
 
