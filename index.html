@@ -13,58 +13,188 @@
     --pink: #ff5cb8;
     --pink-2: #ff8de0;
     --cyan: #9cd6ff;
+    --green: #5fe87a;
   }
-  html, body { margin: 0; padding: 0; min-height: 100%; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
-  body {
-    background: radial-gradient(ellipse at top, var(--bg-3) 0%, var(--bg-2) 35%, var(--bg-1) 80%);
-    min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 32px 20px 60px;
-    box-sizing: border-box;
-    overflow-x: hidden;
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+  body { min-height: 100vh; position: relative; }
+
+  /* =========================
+     LAYERED BACKGROUND
+     ========================= */
+  .bg-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .bg-sky    { z-index: -10; }
+  .bg-stars  { z-index: -9; }
+  .bg-moon   { z-index: -8; }
+  .bg-far    { z-index: -7; opacity: .7; }
+  .bg-mid    { z-index: -6; opacity: .85; }
+  .bg-near   { z-index: -5; }
+  .bg-mist   { z-index: -4; }
+  .bg-spirits{ z-index: -3; }
+
+  /* SKY: deep purple gradient with magenta haze near top */
+  .bg-sky {
+    background:
+      radial-gradient(ellipse 80% 60% at 60% 12%, rgba(255, 92, 184, 0.22) 0%, rgba(255, 92, 184, 0) 70%),
+      radial-gradient(ellipse 70% 50% at 30% 25%, rgba(120, 60, 220, 0.20) 0%, rgba(120, 60, 220, 0) 70%),
+      linear-gradient(180deg, #2a134a 0%, #1a0e3a 35%, #0f0820 75%, #0a0716 100%);
   }
-  header { text-align: center; margin: 8px 0 28px; }
+
+  /* MOON / AURORA: a soft magenta orb that pulses gently */
+  .moon {
+    position: absolute; top: 8%; right: 18%;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 35% 35%, #fff5fb 0%, #ffd6ee 12%, #ff8ad4 28%, rgba(255, 92, 184, 0.35) 55%, rgba(255, 60, 170, 0) 80%);
+    filter: blur(2px);
+    opacity: .95;
+    animation: moonPulse 8s ease-in-out infinite;
+  }
+  @keyframes moonPulse {
+    0%, 100% { transform: scale(1); filter: blur(2px) brightness(1); }
+    50%      { transform: scale(1.06); filter: blur(2px) brightness(1.18); }
+  }
+
+  /* STARS: small twinkling dots placed via box-shadow trick */
+  .bg-stars {
+    background-color: transparent;
+  }
+  .bg-stars::before, .bg-stars::after {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 14%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%,  #cdd 50%, transparent 51%),
+      radial-gradient(2px 2px at 47% 22%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 62% 5%,  #cef 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 16%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 88% 30%, #cef 50%, transparent 51%),
+      radial-gradient(1px 1px at 6% 36%,  #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 22% 48%, #cef 50%, transparent 51%),
+      radial-gradient(2px 2px at 36% 28%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 92% 12%, #fff 50%, transparent 51%);
+    animation: twinkleA 4s ease-in-out infinite;
+  }
+  .bg-stars::after {
+    background-image:
+      radial-gradient(1px 1px at 18% 30%, #fcd 50%, transparent 51%),
+      radial-gradient(1px 1px at 42% 38%, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 56% 44%, #ace 50%, transparent 51%),
+      radial-gradient(1px 1px at 72% 26%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 84% 42%, #cef 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 22%,  #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 33% 18%, #ffd 50%, transparent 51%);
+    animation: twinkleB 5.2s ease-in-out infinite;
+  }
+  @keyframes twinkleA { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+  @keyframes twinkleB { 0%, 100% { opacity: .9; } 50% { opacity: .35; } }
+
+  /* TREE / RUIN SILHOUETTES — three SVG layers, slow horizontal drift */
+  .bg-far svg, .bg-mid svg, .bg-near svg {
+    position: absolute; bottom: 0; left: 0;
+    width: 200%; height: 100%;
+    display: block;
+    animation: drift 90s linear infinite;
+  }
+  .bg-mid svg  { animation-duration: 60s; }
+  .bg-near svg { animation-duration: 38s; bottom: -4%; }
+  @keyframes drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* MIST: soft white-blue gradient at the bottom that drifts slowly */
+  .bg-mist {
+    background: linear-gradient(180deg, transparent 60%, rgba(156, 214, 255, 0.05) 80%, rgba(156, 214, 255, 0.10) 100%);
+  }
+  .bg-mist::before {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+    height: 30%;
+    background:
+      radial-gradient(60% 100% at 20% 100%, rgba(255, 92, 184, 0.10) 0%, rgba(255, 92, 184, 0) 70%),
+      radial-gradient(60% 100% at 80% 100%, rgba(156, 214, 255, 0.10) 0%, rgba(156, 214, 255, 0) 70%);
+  }
+
+  /* SPIRITS — small glowing dots that drift up like fireflies / Bloo souls */
+  .bg-spirits .spirit {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--pink);
+    box-shadow: 0 0 12px var(--pink), 0 0 4px #fff inset;
+    opacity: .7;
+    animation: float 14s linear infinite;
+    bottom: -20px;
+  }
+  .bg-spirits .spirit.cyan { background: var(--cyan); box-shadow: 0 0 12px var(--cyan), 0 0 4px #fff inset; }
+  .bg-spirits .spirit.small { width: 3px; height: 3px; }
+  @keyframes float {
+    from { transform: translateY(0) translateX(0); opacity: 0; }
+    10%  { opacity: .9; }
+    50%  { transform: translateY(-50vh) translateX(20px); }
+    90%  { opacity: .5; }
+    to   { transform: translateY(-110vh) translateX(-20px); opacity: 0; }
+  }
+
+  /* =========================
+     FOREGROUND
+     ========================= */
+  .container { max-width: 1100px; margin: 0 auto; padding: 36px 20px 80px; position: relative; z-index: 1; }
+  header { text-align: center; margin: 12px 0 30px; }
   h1 {
-    margin: 0; font-size: clamp(36px, 6vw, 64px); font-weight: 800; letter-spacing: 1px;
+    margin: 0; font-size: clamp(40px, 7vw, 76px); font-weight: 800; letter-spacing: 1px;
     background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 30px rgba(255, 92, 184, 0.35);
+    text-shadow: 0 0 40px rgba(255, 92, 184, 0.5);
+    animation: titleGlow 4s ease-in-out infinite;
   }
-  .subtitle { color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 14px; letter-spacing: .5px; }
+  @keyframes titleGlow {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 92, 184, 0.4)); }
+    50%      { filter: drop-shadow(0 0 24px rgba(255, 92, 184, 0.7)); }
+  }
+  .subtitle { color: rgba(255,255,255,0.65); margin-top: 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
   .grid {
     display: grid; gap: 24px;
     grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
     justify-content: center;
-    width: 100%; max-width: 1100px;
   }
+
+  /* CARDS */
   .card {
     position: relative;
-    border-radius: 16px;
+    border-radius: 18px;
     overflow: hidden;
     background: rgba(20, 8, 40, 0.55);
     border: 1.5px solid rgba(255, 92, 184, 0.35);
-    box-shadow: 0 12px 32px rgba(0,0,0,.5), 0 0 24px rgba(255, 92, 184, 0.15);
+    box-shadow: 0 12px 32px rgba(0,0,0,.55), 0 0 30px rgba(255, 92, 184, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     text-decoration: none; color: #fff;
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
     cursor: pointer;
     display: block;
   }
-  .card:hover, .card:focus {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 44px rgba(0,0,0,.6), 0 0 36px rgba(255, 92, 184, 0.35);
-    border-color: rgba(255, 92, 184, 0.7);
-    outline: none;
+  .card::before {
+    content: "";
+    position: absolute; inset: -1px;
+    border-radius: 18px;
+    padding: 1.5px;
+    background: linear-gradient(135deg, rgba(255,92,184,.6), rgba(156,214,255,.4) 50%, rgba(255,92,184,.6));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .22s ease;
   }
-  .card:active { transform: translateY(-1px); }
-  .thumb {
-    height: 200px;
-    position: relative;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
-  }
+  .card:hover, .card:focus { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(0,0,0,.65), 0 0 50px rgba(255, 92, 184, 0.45); border-color: rgba(255, 92, 184, 0.6); outline: none; }
+  .card:hover::before, .card:focus::before { opacity: 1; }
+  .card:active { transform: translateY(-2px); }
+
+  .thumb { height: 220px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
-  .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 200%); }
+  .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
   .thumb svg { width: 100%; height: 100%; }
+
   .body { padding: 18px 22px 22px; }
   .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .game-title { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: .3px; }
@@ -76,141 +206,298 @@
     letter-spacing: .5px;
   }
   .badge.new { background: rgba(156, 214, 255, 0.18); color: var(--cyan); border-color: rgba(156, 214, 255, 0.4); }
-  p.desc { color: rgba(255,255,255,0.65); font-size: 14px; line-height: 1.5; margin: 8px 0 0; }
+  p.desc { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.55; margin: 8px 0 0; }
   .play-row { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
   .play {
     background: linear-gradient(135deg, var(--pink) 0%, #c038ff 100%);
     color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .8px;
     padding: 10px 18px; border-radius: 999px; border: 0;
     box-shadow: 0 6px 18px rgba(255, 92, 184, 0.45);
+    transition: transform .15s ease;
   }
+  .card:hover .play { transform: translateX(4px); }
   .meta { color: rgba(255,255,255,0.4); font-size: 12px; }
-  footer { margin-top: 40px; color: rgba(255,255,255,0.35); font-size: 12px; text-align: center; }
+
+  footer { margin-top: 48px; color: rgba(255,255,255,0.4); font-size: 12px; text-align: center; }
   footer a { color: var(--pink-2); text-decoration: none; }
-  .ambient { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
-  .ambient .dot {
-    position: absolute; width: 4px; height: 4px; border-radius: 50%;
-    background: var(--pink); box-shadow: 0 0 10px var(--pink);
-    animation: rise 8s linear infinite;
-    opacity: 0.5;
-  }
-  .ambient .dot.cyan { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
-  @keyframes rise {
-    from { transform: translateY(110vh); opacity: 0; }
-    20%  { opacity: 0.7; }
-    to   { transform: translateY(-10vh); opacity: 0; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    .bg-far svg, .bg-mid svg, .bg-near svg, .bg-spirits .spirit, .moon, .bg-stars::before, .bg-stars::after { animation: none; }
   }
 </style>
 </head>
 <body>
-  <div class="ambient" id="amb"></div>
-  <header>
-    <h1>Bloo Arcade</h1>
-    <div class="subtitle">A growing collection of mini-games</div>
-  </header>
 
-  <div class="grid">
-    <a class="card" href="game.html" aria-label="Play Forest of Embers">
-      <div class="thumb thumb-platformer">
-        <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <radialGradient id="glowP" cx="50%" cy="60%" r="60%">
-              <stop offset="0%" stop-color="#ff8de0" stop-opacity="0.6"/>
-              <stop offset="100%" stop-color="#ff8de0" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <rect width="360" height="200" fill="url(#glowP)"/>
-          <g fill="#1f1145" opacity="0.7">
-            <ellipse cx="40" cy="130" rx="28" ry="32"/>
-            <ellipse cx="100" cy="130" rx="32" ry="36"/>
-            <ellipse cx="170" cy="130" rx="28" ry="34"/>
-            <ellipse cx="240" cy="130" rx="34" ry="38"/>
-            <ellipse cx="320" cy="130" rx="30" ry="32"/>
-          </g>
-          <rect x="0" y="160" width="360" height="40" fill="#1a1230"/>
-          <rect x="0" y="156" width="360" height="6" fill="#1b8a40"/>
-          <rect x="0" y="154" width="360" height="3" fill="#4dd07a"/>
-          <g transform="translate(180, 130)">
-            <ellipse cx="0" cy="0" rx="22" ry="22" fill="#ff5cb8" opacity="0.25"/>
-            <path d="M -10 0 Q -8 -22 -2 -8 Q 0 -28 4 -8 Q 10 -22 12 0 Z" fill="#ff5cb8"/>
-            <circle cx="0" cy="0" r="14" fill="#1f6fd1"/>
-            <circle cx="0" cy="2" r="8" fill="#9fd9ff"/>
-            <circle cx="-4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="-4" cy="-1" r="1.4" fill="#0a0a3a"/>
-            <circle cx="4" cy="-1" r="1.4" fill="#0a0a3a"/>
-          </g>
-        </svg>
-      </div>
-      <div class="body">
-        <div class="title-row">
-          <h2 class="game-title">Forest of Embers</h2>
-          <span class="badge">3 LEVELS</span>
-        </div>
-        <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
-        <div class="play-row">
-          <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
-          <span class="play">PLAY ▸</span>
-        </div>
-      </div>
-    </a>
+  <!-- ===== Background layers ===== -->
+  <div class="bg-layer bg-sky"></div>
 
-    <a class="card" href="runner.html" aria-label="Play Crowd Runner">
-      <div class="thumb thumb-runner">
-        <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="laneR" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1a0e30"/>
-              <stop offset="100%" stop-color="#2a134a"/>
-            </linearGradient>
-          </defs>
-          <rect width="360" height="200" fill="url(#laneR)"/>
-          <g stroke="rgba(255,92,184,0.35)" stroke-width="2" stroke-dasharray="6 8">
-            <line x1="60" y1="0" x2="60" y2="200"/>
-            <line x1="300" y1="0" x2="300" y2="200"/>
-          </g>
-          <rect x="80" y="40" width="100" height="40" fill="rgba(80,255,140,0.25)" stroke="#5fe87a" stroke-width="2" rx="6"/>
-          <text x="130" y="68" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="22" font-weight="bold">×2</text>
-          <rect x="180" y="40" width="100" height="40" fill="rgba(255,90,140,0.22)" stroke="#ff5c8a" stroke-width="2" rx="6"/>
-          <text x="230" y="68" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="20" font-weight="bold">−5</text>
-          <g transform="translate(180, 160)">
-            <circle cx="-30" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
-            <circle cx="-12" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
-            <circle cx="0" cy="-2" r="11" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="2"/>
-            <circle cx="14" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
-            <circle cx="32" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.8"/>
-          </g>
-        </svg>
-      </div>
-      <div class="body">
-        <div class="title-row">
-          <h2 class="game-title">Crowd Runner</h2>
-          <span class="badge new">NEW</span>
-        </div>
-        <p class="desc">Top-down endless auto-shooter. Steer your crowd through gates to multiply, mow down enemies, survive the boss walls.</p>
-        <div class="play-row">
-          <span class="meta">Bloo&nbsp;·&nbsp;Endless</span>
-          <span class="play">PLAY ▸</span>
-        </div>
-      </div>
-    </a>
+  <div class="bg-layer bg-stars"></div>
+
+  <div class="bg-layer bg-moon">
+    <div class="moon"></div>
   </div>
 
-  <footer>
-    <span>More minigames coming soon · </span>
-    <a href="https://github.com/deweydickem/bloo-game" target="_blank" rel="noopener">source</a>
-  </footer>
+  <!-- Far ruin/tree silhouette -->
+  <div class="bg-layer bg-far">
+    <svg viewBox="0 0 2000 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
+      <g fill="#1a0f30">
+        <!-- distant arches / ruins -->
+        <rect x="100" y="540" width="80" height="260"/>
+        <rect x="220" y="500" width="60" height="300"/>
+        <path d="M 180 540 a 40 40 0 0 1 80 0 z"/>
+        <rect x="320" y="560" width="100" height="240"/>
+        <path d="M 320 560 a 50 50 0 0 1 100 0 z"/>
+        <!-- spires -->
+        <polygon points="520,560 540,420 560,560"/>
+        <polygon points="600,580 630,460 660,580"/>
+        <rect x="700" y="540" width="50" height="260"/>
+        <!-- gentle hills -->
+        <path d="M 0 700 Q 200 600 500 680 T 1000 660 T 1500 690 T 2000 670 L 2000 800 L 0 800 Z"/>
+        <!-- second copy mirrored for seamless loop -->
+        <g transform="translate(1000, 0)">
+          <rect x="100" y="540" width="80" height="260"/>
+          <rect x="220" y="500" width="60" height="300"/>
+          <path d="M 180 540 a 40 40 0 0 1 80 0 z"/>
+          <rect x="320" y="560" width="100" height="240"/>
+          <path d="M 320 560 a 50 50 0 0 1 100 0 z"/>
+          <polygon points="520,560 540,420 560,560"/>
+          <polygon points="600,580 630,460 660,580"/>
+          <rect x="700" y="540" width="50" height="260"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Mid trees -->
+  <div class="bg-layer bg-mid">
+    <svg viewBox="0 0 2000 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
+      <g fill="#0e0820">
+        <!-- repeated tree clumps -->
+        <g>
+          <rect x="80" y="640" width="14" height="120"/>
+          <ellipse cx="87" cy="630" rx="55" ry="65"/>
+          <ellipse cx="50" cy="650" rx="40" ry="50"/>
+          <ellipse cx="125" cy="650" rx="40" ry="50"/>
+        </g>
+        <g transform="translate(280, 30)">
+          <rect x="0" y="640" width="16" height="120"/>
+          <ellipse cx="8" cy="620" rx="65" ry="75"/>
+          <ellipse cx="-35" cy="640" rx="45" ry="55"/>
+          <ellipse cx="55" cy="640" rx="45" ry="55"/>
+        </g>
+        <g transform="translate(560, 0)">
+          <rect x="0" y="640" width="14" height="120"/>
+          <ellipse cx="7" cy="630" rx="55" ry="65"/>
+          <ellipse cx="-30" cy="650" rx="38" ry="48"/>
+          <ellipse cx="44" cy="650" rx="38" ry="48"/>
+        </g>
+        <g transform="translate(820, 20)">
+          <rect x="0" y="640" width="16" height="120"/>
+          <ellipse cx="8" cy="615" rx="60" ry="72"/>
+          <ellipse cx="-30" cy="640" rx="42" ry="52"/>
+          <ellipse cx="46" cy="640" rx="42" ry="52"/>
+        </g>
+        <!-- duplicate for loop -->
+        <g transform="translate(1000, 0)">
+          <g>
+            <rect x="80" y="640" width="14" height="120"/>
+            <ellipse cx="87" cy="630" rx="55" ry="65"/>
+            <ellipse cx="50" cy="650" rx="40" ry="50"/>
+            <ellipse cx="125" cy="650" rx="40" ry="50"/>
+          </g>
+          <g transform="translate(280, 30)">
+            <rect x="0" y="640" width="16" height="120"/>
+            <ellipse cx="8" cy="620" rx="65" ry="75"/>
+            <ellipse cx="-35" cy="640" rx="45" ry="55"/>
+            <ellipse cx="55" cy="640" rx="45" ry="55"/>
+          </g>
+          <g transform="translate(560, 0)">
+            <rect x="0" y="640" width="14" height="120"/>
+            <ellipse cx="7" cy="630" rx="55" ry="65"/>
+            <ellipse cx="-30" cy="650" rx="38" ry="48"/>
+            <ellipse cx="44" cy="650" rx="38" ry="48"/>
+          </g>
+          <g transform="translate(820, 20)">
+            <rect x="0" y="640" width="16" height="120"/>
+            <ellipse cx="8" cy="615" rx="60" ry="72"/>
+            <ellipse cx="-30" cy="640" rx="42" ry="52"/>
+            <ellipse cx="46" cy="640" rx="42" ry="52"/>
+          </g>
+        </g>
+        <!-- subtle teal highlights on a few trees -->
+      </g>
+      <g fill="#1a4a55" opacity="0.45">
+        <ellipse cx="50" cy="630" rx="14" ry="18"/>
+        <ellipse cx="288" cy="620" rx="16" ry="20"/>
+        <ellipse cx="567" cy="630" rx="14" ry="18"/>
+        <ellipse cx="828" cy="615" rx="16" ry="20"/>
+        <ellipse cx="1050" cy="630" rx="14" ry="18"/>
+        <ellipse cx="1288" cy="620" rx="16" ry="20"/>
+        <ellipse cx="1567" cy="630" rx="14" ry="18"/>
+        <ellipse cx="1828" cy="615" rx="16" ry="20"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Near foreground bushes / grass -->
+  <div class="bg-layer bg-near">
+    <svg viewBox="0 0 2000 400" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
+      <g fill="#070414">
+        <ellipse cx="60" cy="380" rx="120" ry="40"/>
+        <ellipse cx="240" cy="385" rx="80" ry="34"/>
+        <ellipse cx="420" cy="380" rx="140" ry="44"/>
+        <ellipse cx="640" cy="385" rx="100" ry="38"/>
+        <ellipse cx="850" cy="380" rx="130" ry="42"/>
+        <!-- repeat -->
+        <ellipse cx="1060" cy="380" rx="120" ry="40"/>
+        <ellipse cx="1240" cy="385" rx="80" ry="34"/>
+        <ellipse cx="1420" cy="380" rx="140" ry="44"/>
+        <ellipse cx="1640" cy="385" rx="100" ry="38"/>
+        <ellipse cx="1850" cy="380" rx="130" ry="42"/>
+      </g>
+      <!-- glowing mossy tops -->
+      <g fill="#1b8a40" opacity="0.55">
+        <ellipse cx="60"   cy="350" rx="118" ry="6"/>
+        <ellipse cx="240"  cy="355" rx="78" ry="6"/>
+        <ellipse cx="420"  cy="350" rx="138" ry="6"/>
+        <ellipse cx="640"  cy="355" rx="98" ry="6"/>
+        <ellipse cx="850"  cy="350" rx="128" ry="6"/>
+        <ellipse cx="1060" cy="350" rx="118" ry="6"/>
+        <ellipse cx="1240" cy="355" rx="78" ry="6"/>
+        <ellipse cx="1420" cy="350" rx="138" ry="6"/>
+        <ellipse cx="1640" cy="355" rx="98" ry="6"/>
+        <ellipse cx="1850" cy="350" rx="128" ry="6"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Mist at the bottom -->
+  <div class="bg-layer bg-mist"></div>
+
+  <!-- Drifting Bloo spirits / fireflies -->
+  <div class="bg-layer bg-spirits" id="spirits"></div>
+
+  <!-- ===== Foreground ===== -->
+  <div class="container">
+    <header>
+      <h1>Bloo Arcade</h1>
+      <div class="subtitle">A growing collection of mini-games</div>
+    </header>
+
+    <div class="grid">
+      <a class="card" href="game.html" aria-label="Play Forest of Embers">
+        <div class="thumb thumb-platformer">
+          <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="glowP" cx="50%" cy="60%" r="60%">
+                <stop offset="0%" stop-color="#ff8de0" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#ff8de0" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#glowP)"/>
+            <g fill="#1f1145" opacity="0.7">
+              <ellipse cx="40" cy="150" rx="28" ry="32"/>
+              <ellipse cx="100" cy="150" rx="32" ry="36"/>
+              <ellipse cx="170" cy="150" rx="28" ry="34"/>
+              <ellipse cx="240" cy="150" rx="34" ry="38"/>
+              <ellipse cx="320" cy="150" rx="30" ry="32"/>
+            </g>
+            <rect x="0" y="180" width="360" height="40" fill="#1a1230"/>
+            <rect x="0" y="176" width="360" height="6" fill="#1b8a40"/>
+            <rect x="0" y="174" width="360" height="3" fill="#4dd07a"/>
+            <g transform="translate(180, 150)">
+              <ellipse cx="0" cy="0" rx="22" ry="22" fill="#ff5cb8" opacity="0.25"/>
+              <path d="M -10 0 Q -8 -22 -2 -8 Q 0 -28 4 -8 Q 10 -22 12 0 Z" fill="#ff5cb8"/>
+              <circle cx="0" cy="0" r="14" fill="#1f6fd1"/>
+              <circle cx="0" cy="2" r="8" fill="#9fd9ff"/>
+              <circle cx="-4" cy="-2" r="3" fill="#fff"/>
+              <circle cx="4" cy="-2" r="3" fill="#fff"/>
+              <circle cx="-4" cy="-1" r="1.4" fill="#0a0a3a"/>
+              <circle cx="4" cy="-1" r="1.4" fill="#0a0a3a"/>
+            </g>
+          </svg>
+        </div>
+        <div class="body">
+          <div class="title-row">
+            <h2 class="game-title">Forest of Embers</h2>
+            <span class="badge">3 LEVELS</span>
+          </div>
+          <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
+          <div class="play-row">
+            <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
+            <span class="play">PLAY ▸</span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="runner.html" aria-label="Play Crowd Runner">
+        <div class="thumb thumb-runner">
+          <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="laneR" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1a0e30"/>
+                <stop offset="100%" stop-color="#2a134a"/>
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#laneR)"/>
+            <!-- Trapezoidal lane to hint at perspective -->
+            <polygon points="120,0 240,0 320,220 40,220" fill="rgba(20, 8, 40, 0.5)"/>
+            <line x1="120" y1="0" x2="40" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
+            <line x1="240" y1="0" x2="320" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
+            <rect x="80" y="50" width="100" height="38" fill="rgba(80,255,140,0.25)" stroke="#5fe87a" stroke-width="2" rx="6"/>
+            <text x="130" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="20" font-weight="bold">×2</text>
+            <rect x="180" y="50" width="100" height="38" fill="rgba(255,90,140,0.22)" stroke="#ff5c8a" stroke-width="2" rx="6"/>
+            <text x="230" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="18" font-weight="bold">−5</text>
+            <!-- Bullets -->
+            <g fill="#9cd6ff" opacity="0.85">
+              <rect x="160" y="120" width="3" height="10"/>
+              <rect x="180" y="135" width="3" height="10"/>
+              <rect x="200" y="120" width="3" height="10"/>
+            </g>
+            <!-- Crowd -->
+            <g transform="translate(180, 180)">
+              <circle cx="-30" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
+              <circle cx="-12" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
+              <circle cx="0" cy="-2" r="11" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="2"/>
+              <circle cx="14" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
+              <circle cx="32" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
+            </g>
+          </svg>
+        </div>
+        <div class="body">
+          <div class="title-row">
+            <h2 class="game-title">Crowd Runner</h2>
+            <span class="badge new">NEW</span>
+          </div>
+          <p class="desc">Top-down endless auto-shooter. Steer through gates to multiply, tap to fire, mow down enemies, survive boss walls.</p>
+          <div class="play-row">
+            <span class="meta">Bloo&nbsp;·&nbsp;Endless</span>
+            <span class="play">PLAY ▸</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <footer>
+      <span>More minigames coming soon · </span>
+      <a href="https://github.com/deweydickem/bloo-game" target="_blank" rel="noopener">source</a>
+    </footer>
+  </div>
 
   <script>
-    const amb = document.getElementById('amb');
-    for (let i = 0; i < 30; i++) {
+    // Spawn drifting spirit lights
+    const sp = document.getElementById('spirits');
+    const N = 18;
+    for (let i = 0; i < N; i++) {
       const d = document.createElement('div');
-      d.className = 'dot' + (Math.random() < 0.5 ? ' cyan' : '');
+      d.className = 'spirit' + (Math.random() < 0.4 ? ' cyan' : '') + (Math.random() < 0.4 ? ' small' : '');
       d.style.left = (Math.random() * 100) + 'vw';
-      d.style.animationDelay = (Math.random() * 8) + 's';
-      d.style.animationDuration = (6 + Math.random() * 6) + 's';
-      d.style.opacity = 0.3 + Math.random() * 0.5;
-      amb.appendChild(d);
+      d.style.animationDelay = (Math.random() * 14) + 's';
+      d.style.animationDuration = (10 + Math.random() * 10) + 's';
+      d.style.opacity = (0.5 + Math.random() * 0.4).toFixed(2);
+      sp.appendChild(d);
     }
   </script>
 </body>
