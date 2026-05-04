@@ -254,6 +254,7 @@
       enemyStomp()  { noise(0.18, { freq: 200, freqEnd: 80, gain: 0.16, Q: 0.6 }); tone(160, 0.08, 'square', { gain: 0.10 }); },
       hurt()        { tone(330, 0.18, 'sawtooth', { freqEnd: 180, gain: 0.16 }); tone(520, 0.18, 'square', { freqEnd: 240, gain: 0.06 }); },
       death()       { arp([440, 370, 311, 247, 196], 0.10, 'triangle', { gain: 0.18, noteDur: 0.22 }); },
+      spring()      { tone(220, 0.16, 'sine', { freqEnd: 880, gain: 0.18, rel: 0.12 }); },
       portal()      { arp([523, 659, 784, 1047, 1319, 1568], 0.09, 'sine', { gain: 0.20, noteDur: 0.30 }); setTimeout(() => arp([1047, 1319, 1568], 0.08, 'triangle', { gain: 0.14, noteDur: 0.30 }), 180); },
     };
   })();
@@ -315,9 +316,13 @@
   const JUMP2_V  = -10.0;      // double jump — slightly weaker
   const MAX_JUMPS = 2;         // double jump enabled
 
-  // Level layout. '#'=ground, '='=brick, '?'=question, 'P'=pillar, 'F'=portal,
-  // 'c'=coin, 'g'=spiky walker, 'd'=floating devil. ' '=empty, 'S'=start
-  const level = [
+  // Level chars:
+  //   '#'=ground, '='=brick, '?'=question, 'P'=pillar, 'F'=portal,
+  //   'c'=coin, 'g'=spiky walker, 'd'=floating devil, 'S'=start, ' '=empty
+  //   '^'=spike (instant death), '!'=spring (bounce pad),
+  //   '>'=moving platform (horizontal), 'v'=moving platform (vertical)
+  const LEVEL_LAYOUTS = {
+    'Forest of Embers': [
     "                                                                                                                                                                                                ",
     "                                                                                                                                                                                                ",
     "                                                                                                d                                                                      F                        ",
@@ -331,26 +336,71 @@
     "  S                              g                                          g                                                  g          g                            F                        ",
     "##########################  ###############################  ##################  PP  #####################################  PPPP  ########################################################      ",
     "##########################  ###############################  ##################  PP  #####################################  PPPP  ########################################################      ",
-  ];
+    ],
+    'The Hollow Climb': [
+      "                                                                                                                                                                                                ",
+      "                                                                                                                                                                                                ",
+      "                                  ccc                                                                                       ccc                                                                 ",
+      "                                                                                                                                                                                                ",
+      "                                                                                                                                            ccccc                                              F",
+      "         d                                                                                                                                =========                                            F",
+      "                          ===?===                              cc                                                                                                                              F",
+      "                                                            ========                              cc                                                                                            F",
+      "                                                                                              ========                            ccc                                                          F",
+      "                              ccc                                              d                                              ====?====                                                        F",
+      "  S    !                                            g                                                                                                              g                            F",
+      "###############  ##############################################  ##^^^^^^^^##  ####################  ##^^^##  ###############################################  ###################  ###########",
+      "###############  ##############################################  ##########  #####################  #######  ###############################################  ###################  ###########",
+    ],
+    'Skyspire': [
+      "                                                                                                                                                                                                ",
+      "                                  ccc                                                                                                                              ccc                          ",
+      "                                                                                                                                                                                                ",
+      "                                                                              cc                                                                                                                ",
+      "                                                                                                                                                                                                ",
+      "                          ccc                                              ===?===                                              cccccc                                                          F",
+      "                                                          ccc                                                                ===========                                                        F",
+      "                                                                                              cc                                                                                                F",
+      "         d                                            ===?===                                                                                                       d                            F",
+      "                                              ccc                                              cc                cc                                            cc                                F",
+      "  S    !          !                  g                                                                                                                                          g                F",
+      "###########  ###  ##  #################  ##^^##  ############  ##^^^^^^##  ##############  ###^^^###  ##^^##  ##  ##^^^^^^^^^^^##  ##############  ##^^^##  ###############################  ###",
+      "###########  ###  ##  #################  ######  ############  ##########  ##############  #########  ######  ##  #################  ##############  #######  ###############################  ###",
+    ],
+  };
+  const LEVEL_ORDER = ['Forest of Embers', 'The Hollow Climb', 'Skyspire'];
+  let currentLevel = 0;
+  let level = LEVEL_LAYOUTS[LEVEL_ORDER[currentLevel]];
 
-  const ROWS = level.length;
-  const COLS = level[0].length;
-  const LEVEL_W = COLS * TILE;
-  const LEVEL_H = ROWS * TILE;
+  let ROWS = level.length;
+  let COLS = level[0].length;
+  let LEVEL_W = COLS * TILE;
+  let LEVEL_H = ROWS * TILE;
 
   const solids = [];
   const coins = [];
   const enemies = [];
   const blocks = [];
+  const spikes = [];        // {x,y,w,h}
+  const springs = [];       // {x,y,w,h,charge}
+  const movingPlats = [];   // {x,y,w,h,vx,vy,minX,maxX,minY,maxY,type}
   let portalX = 0, portalY = 0, portalH = 0;
   let startX = 80, startY = 100;
 
   function buildLevel() {
+    level = LEVEL_LAYOUTS[LEVEL_ORDER[currentLevel]];
+    ROWS = level.length;
+    COLS = Math.max(...level.map(r => r.length));
+    LEVEL_W = COLS * TILE;
+    LEVEL_H = ROWS * TILE;
+
     solids.length = 0; coins.length = 0; enemies.length = 0; blocks.length = 0;
+    spikes.length = 0; springs.length = 0; movingPlats.length = 0;
     let mushroomGiven = false;
     for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const ch = level[r][c];
+      const row = level[r];
+      for (let c = 0; c < row.length; c++) {
+        const ch = row[c];
         const x = c * TILE, y = r * TILE;
         if (ch === '#') solids.push({x,y,w:TILE,h:TILE,type:'ground'});
         else if (ch === '=') {
@@ -368,14 +418,41 @@
         else if (ch === 'c') coins.push({x:x+TILE/2, y:y+TILE/2, r:11, taken:false, t:Math.random()*Math.PI*2});
         else if (ch === 'g') enemies.push({x:x+4, y:y+8, w:TILE-8, h:TILE-8, vx:-1.2, vy:0, alive:true, type:'spiky', squashT:0});
         else if (ch === 'd') enemies.push({x:x+4, y:y+4, w:TILE-8, h:TILE-8, vx:1.0, vy:0, alive:true, type:'devil', baseY:y+4, t:Math.random()*Math.PI*2, squashT:0});
+        else if (ch === '^') spikes.push({x: x+2, y: y+18, w: TILE-4, h: TILE-18});
+        else if (ch === '!') springs.push({x: x+4, y: y+TILE-18, w: TILE-8, h: 14, charge: 0});
+        else if (ch === '>') {
+          // horizontal moving platform 3 tiles wide, oscillates ±60px around spawn
+          movingPlats.push({x, y, w: TILE*2, h: 12, vx: 1.4, vy: 0, axis: 'x', minX: x - 60, maxX: x + 60});
+        }
+        else if (ch === 'v') {
+          movingPlats.push({x, y, w: TILE*2, h: 12, vx: 0, vy: 1.0, axis: 'y', minY: y - 60, maxY: y + 60});
+        }
         else if (ch === 'S') { startX = x; startY = y; }
       }
     }
     let top = ROWS, bot = 0;
-    for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) if (level[r][c]==='F') { if (r<top) top=r; if (r>bot) bot=r; portalX = c*TILE + TILE/2; }
+    for (let r=0; r<ROWS; r++) for (let c=0; c<level[r].length; c++) if (level[r][c]==='F') { if (r<top) top=r; if (r>bot) bot=r; portalX = c*TILE + TILE/2; }
     portalY = top*TILE; portalH = (bot-top+1)*TILE;
   }
   buildLevel();
+  let nextLevelMessageT = 0; // banner display timer
+  let levelEnterT = 90;       // show banner on initial load too
+  function loadLevel(idx) {
+    currentLevel = idx;
+    buildLevel();
+    resetPlayer();
+    levelEnterT = 90; // show level name banner for 1.5s
+    camX = 0;
+  }
+  function advanceLevel() {
+    if (currentLevel + 1 < LEVEL_ORDER.length) {
+      loadLevel(currentLevel + 1);
+    } else {
+      // Final win
+      player.won = true;
+      showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Crystals: ' + player.coins + ' — press R to play again');
+    }
+  }
 
   // ----- Player -----
   const player = {
@@ -547,6 +624,30 @@
 
     player.h = player.big ? 64 : 44;
 
+    // ---- Update moving platforms first so player riding them moves with them ----
+    for (const mp of movingPlats) {
+      const oldX = mp.x, oldY = mp.y;
+      if (mp.axis === 'x') {
+        mp.x += mp.vx;
+        if (mp.x < mp.minX) { mp.x = mp.minX; mp.vx = -mp.vx; }
+        if (mp.x > mp.maxX) { mp.x = mp.maxX; mp.vx = -mp.vx; }
+      } else {
+        mp.y += mp.vy;
+        if (mp.y < mp.minY) { mp.y = mp.minY; mp.vy = -mp.vy; }
+        if (mp.y > mp.maxY) { mp.y = mp.maxY; mp.vy = -mp.vy; }
+      }
+      // If player is standing on top of this platform (within 4px above its top), carry them
+      if (player.onGround &&
+          player.x + player.w > mp.x && player.x < mp.x + mp.w &&
+          Math.abs((player.y + player.h) - mp.y) < 6) {
+        player.x += (mp.x - oldX);
+        player.y += (mp.y - oldY);
+      }
+      // Add platform to solids briefly for this frame's collision (then remove)
+      mp._asSolid = { x: mp.x, y: mp.y, w: mp.w, h: mp.h, type: 'mplat' };
+      solids.push(mp._asSolid);
+    }
+
     moveAndCollide(player, player.vx, 0);
     const wasInAir = !player.onGround;
     const vyBeforeMove = player.vy;
@@ -554,8 +655,33 @@
     // landed this frame → refresh double jump
     if (wasInAir && player.onGround) {
       player.jumpsUsed = 0;
-      // landing sound only for substantial drops (skip if barely falling)
       if (vyBeforeMove > 3) Audio.land();
+    }
+
+    // Remove the moving-platform proxies from solids (preserves them as separate list)
+    for (const mp of movingPlats) {
+      const idx = solids.indexOf(mp._asSolid);
+      if (idx >= 0) solids.splice(idx, 1);
+    }
+
+    // Spike collision — instant death
+    for (const sp of spikes) {
+      if (rectsOverlap(player, sp) && !player.dead) { killPlayer(); break; }
+    }
+
+    // Spring collision — bounce on top contact while moving downward
+    for (const sg of springs) {
+      if (sg.charge > 0) sg.charge--;
+      if (sg.charge === 0 &&
+          player.x + player.w > sg.x && player.x < sg.x + sg.w &&
+          player.y + player.h >= sg.y && player.y + player.h <= sg.y + sg.h + 4 &&
+          player.vy >= 0) {
+        player.vy = -16.5;       // big bounce — higher than normal jump
+        player.jumpsUsed = 1;     // double jump still available after a spring
+        player.onGround = false;
+        sg.charge = 12;           // visual squash + cooldown
+        Audio.spring();
+      }
     }
 
     if (player.y > LEVEL_H + 200) killPlayer();
@@ -619,11 +745,20 @@
     }
     for (let i = powerups.length-1; i >= 0; i--) if (powerups[i].taken || powerups[i].y > LEVEL_H+100) powerups.splice(i,1);
 
-    // Portal collision
-    if (Math.abs(player.x + player.w/2 - portalX) < 28) {
-      if (!player.won) Audio.portal();
-      player.won = true;
-      showMsg('YOU REACHED THE PORTAL! Crystals: ' + player.coins + ' — press R to play again');
+    // Portal collision — advance to next level (or final victory)
+    if (Math.abs(player.x + player.w/2 - portalX) < 28 && !player.won) {
+      Audio.portal();
+      if (currentLevel + 1 < LEVEL_ORDER.length) {
+        // brief "level cleared" message, then advance
+        showMsg('Level cleared! Onward…');
+        setTimeout(() => { hideMsg(); advanceLevel(); }, 1100);
+        player.won = true; // freeze player while transition runs
+        // unfreeze after we load
+        setTimeout(() => { player.won = false; }, 1200);
+      } else {
+        player.won = true;
+        showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Crystals: ' + player.coins + ' — press R to play again');
+      }
     }
 
     // Particles
@@ -668,7 +803,7 @@
       }
     }
 
-    if (keys['KeyR']) { player.coins = 0; player.lives = 3; buildLevel(); resetPlayer(); hideMsg(); }
+    if (keys['KeyR']) { player.coins = 0; player.lives = 3; loadLevel(0); hideMsg(); }
 
     updateCamera();
   }
@@ -829,8 +964,91 @@
   }
 
   // Vines now drawn into the sprite (grass_vines includes hanging vines).
-  // Keep this as a no-op so we don't break the call site.
   function drawVines() {}
+
+  function drawSpikes() {
+    for (const sp of spikes) {
+      const x = sp.x - camX, y = sp.y;
+      if (x + sp.w < 0 || x > W) continue;
+      // base
+      ctx.fillStyle = '#1a0e30';
+      ctx.fillRect(x, y + sp.h - 4, sp.w, 4);
+      // 3 sharp pink-tipped spikes
+      const spikeCount = 3;
+      const w = sp.w / spikeCount;
+      for (let i = 0; i < spikeCount; i++) {
+        const sx = x + i * w;
+        const grad = ctx.createLinearGradient(0, y, 0, y + sp.h);
+        grad.addColorStop(0, '#ff5cb8');
+        grad.addColorStop(0.5, '#a02080');
+        grad.addColorStop(1, '#3a0a3a');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(sx, y + sp.h - 2);
+        ctx.lineTo(sx + w/2, y);
+        ctx.lineTo(sx + w, y + sp.h - 2);
+        ctx.closePath(); ctx.fill();
+        // highlight
+        ctx.fillStyle = 'rgba(255, 200, 240, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(sx + w*0.35, y + sp.h - 6);
+        ctx.lineTo(sx + w/2, y + 2);
+        ctx.lineTo(sx + w*0.45, y + 8);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  function drawSprings() {
+    for (const sg of springs) {
+      const x = sg.x - camX, y = sg.y;
+      if (x + sg.w < 0 || x > W) continue;
+      const compress = sg.charge > 0 ? Math.sin((12 - sg.charge) / 12 * Math.PI) * 6 : 0;
+      // base plate
+      ctx.fillStyle = '#2a1845';
+      ctx.fillRect(x, y + sg.h - 4, sg.w, 4);
+      // coil — three pink/white bands
+      const top = y + compress;
+      const bandH = (sg.h - 6 - compress) / 3;
+      for (let i = 0; i < 3; i++) {
+        const by = top + i * bandH;
+        const grad = ctx.createLinearGradient(0, by, 0, by + bandH);
+        grad.addColorStop(0, '#ff8de0');
+        grad.addColorStop(1, '#a040a0');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x + 2, by, sg.w - 4, bandH * 0.8);
+      }
+      // glow
+      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(x + 1, top, sg.w - 2, sg.h - compress - 4);
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function drawMovingPlats() {
+    for (const mp of movingPlats) {
+      const x = mp.x - camX, y = mp.y;
+      if (x + mp.w < 0 || x > W) continue;
+      // soft glow trail
+      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 12;
+      // top rim (mossy)
+      ctx.fillStyle = '#1b8a40';
+      ctx.fillRect(x, y, mp.w, 4);
+      ctx.fillStyle = '#4dd07a';
+      ctx.fillRect(x, y, mp.w, 2);
+      // body — dark stone with cyan undertone
+      const grad = ctx.createLinearGradient(0, y + 4, 0, y + mp.h);
+      grad.addColorStop(0, '#3a2a55');
+      grad.addColorStop(1, '#1a1230');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y + 4, mp.w, mp.h - 4);
+      // rune dots
+      ctx.fillStyle = '#9cd6ff';
+      for (let i = 0; i < 3; i++) ctx.fillRect(x + 8 + i * (mp.w - 24) / 2, y + 7, 3, 3);
+      ctx.shadowBlur = 0;
+    }
+  }
 
   // Decorative grass bushes scattered on top of ground tiles
   function drawDecor() {
@@ -1229,6 +1447,12 @@
     ctx.font = 'bold 14px system-ui, sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText('x ' + player.coins, 94, 51);
+
+    // level indicator (top-right area, leaves room for mute button)
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('LV ' + (currentLevel+1) + '/' + LEVEL_ORDER.length, W - 64, 24);
   }
 
   function drawHeart(cx, cy, r, color) {
@@ -1243,6 +1467,29 @@
     ctx.bezierCurveTo(cx + r, cy, cx, cy, cx, cy + r*0.6);
     ctx.fill();
     ctx.shadowBlur = 0;
+  }
+
+  function drawLevelBanner() {
+    if (levelEnterT > 0) {
+      levelEnterT--;
+      const alpha = levelEnterT > 60 ? 1 : levelEnterT / 60;
+      const name = LEVEL_ORDER[currentLevel];
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.fillStyle = '#0a0716';
+      ctx.fillRect(0, H * 0.38, W, 90);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ff5cb8';
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('LEVEL ' + (currentLevel + 1) + ' / ' + LEVEL_ORDER.length, W/2, H * 0.38 + 24);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 16;
+      ctx.fillText(name, W/2, H * 0.38 + 60);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
   }
 
   function roundRect(x, y, w, h, r) {
@@ -1284,6 +1531,9 @@
     for (const s of solids) drawTile(s);
     drawDecor();
     drawPortal();
+    drawSpikes();
+    drawSprings();
+    drawMovingPlats();
     for (const c of coins) drawCoin(c);
     drawPopCoins();
     for (const p of powerups) drawPowerup(p);
@@ -1292,6 +1542,7 @@
     drawRings();
     drawParticles();
     drawHud();
+    drawLevelBanner();
     requestAnimationFrame(frame);
   }
 
