@@ -105,9 +105,9 @@
   })();
 
   // ----- Asset loading -----
-  // Top-down view of Bloo for the runner crowd
+  // Over-the-shoulder back view of Bloo for the runner crowd
   const ASSET_LIST = {
-    bloo:  'sprites/character/bloo_top.png',
+    bloo:  'sprites/character/bloo_back.png',
   };
   const ASSETS = {};
   let assetsLoaded = 0, assetsTotal = Object.keys(ASSET_LIST).length;
@@ -148,9 +148,22 @@
   // ============================================================================
   // GAME STATE
   // ============================================================================
-  // Lane: a vertical strip in the middle of the canvas
-  const LANE_W = 380;
-  const LANE_X = (W - LANE_W) / 2;
+  // Lane: trapezoid — wider at the bottom (near camera), narrower at top (far)
+  const LANE_W_BOTTOM = 460;          // lane width at the bottom of the screen
+  const LANE_W_TOP    = 260;          // lane width at the top of the screen
+  const LANE_X_BOTTOM = (W - LANE_W_BOTTOM) / 2;
+  const LANE_X_TOP    = (W - LANE_W_TOP) / 2;
+  // Helper: compute the lane left & width at a given screen y
+  function laneAtY(y) {
+    const t = Math.max(0, Math.min(1, y / H));
+    const w = LANE_W_TOP + (LANE_W_BOTTOM - LANE_W_TOP) * t;
+    const x = (W - w) / 2;
+    return { x, w, right: x + w };
+  }
+  // Backwards-compat for code that uses the old constants — these are at the
+  // leader's screen Y, so steering bounds match where the leader actually is
+  const LANE_W = LANE_W_BOTTOM;       // bottom width — used for boss size, etc.
+  const LANE_X = LANE_X_BOTTOM;
   const LANE_RIGHT = LANE_X + LANE_W;
 
   // World scrolls "down" past the camera; positions are in world coords.
@@ -159,7 +172,7 @@
 
   // Camera distance traveled
   let camY = 0;             // world Y at top of canvas (decreases over time)
-  let scrollSpeed = 3.2;    // px/frame, increases over time
+  let scrollSpeed = 3.8;    // px/frame, increases over time (was 3.2)
   let distance = 0;         // total distance traveled
   let bestDistance = 0;
   try { bestDistance = parseInt(localStorage.getItem('bloo.runner.best') || '0', 10); } catch(_) {}
@@ -192,7 +205,7 @@
 
   // Boss
   let boss = null;
-  let nextBossDistance = 1500;
+  let nextBossDistance = 1100;
 
   // Particles
   const particles = [];
@@ -235,25 +248,27 @@
       left:  { ...l, x: LANE_X,         w: halfW, hit: false },
       right: { ...r, x: LANE_X + halfW, w: halfW, hit: false },
     });
-    nextGateY -= 600 + Math.random() * 200;
+    nextGateY -= 480 + Math.random() * 180;
   }
   function pickGateOp(forcePositive) {
     const r = Math.random();
-    if (forcePositive || r < 0.55) {
-      // Multiplier ×2..×4
-      const m = 2 + Math.floor(Math.random() * 3);
+    // Bad halves now ~35% of the time (was 20%) to make gate choices matter more
+    if (forcePositive || r < 0.42) {
+      // Multiplier ×2..×3
+      const m = 2 + Math.floor(Math.random() * 2);
       return { type: 'mul', value: m, label: '×' + m, color: '#5fe87a', score: 1 };
-    } else if (r < 0.80) {
-      // Additive +5..+15
-      const a = 5 + Math.floor(Math.random() * 11);
-      return { type: 'add', value: a, label: '+' + a, color: '#9cd6ff', score: 1 };
-    } else if (r < 0.92) {
-      // Subtract -3..-10
+    } else if (r < 0.65) {
+      // Additive +3..+10
       const a = 3 + Math.floor(Math.random() * 8);
+      return { type: 'add', value: a, label: '+' + a, color: '#9cd6ff', score: 1 };
+    } else if (r < 0.85) {
+      // Subtract -5..-15
+      const a = 5 + Math.floor(Math.random() * 11);
       return { type: 'sub', value: a, label: '−' + a, color: '#ff5c8a', score: -1 };
     } else {
-      // Divide ÷2
-      return { type: 'div', value: 2, label: '÷2', color: '#ff5c8a', score: -1 };
+      // Divide ÷2 or ÷3
+      const d = 2 + Math.floor(Math.random() * 2);
+      return { type: 'div', value: d, label: '÷' + d, color: '#ff5c8a', score: -1 };
     }
   }
   function applyGate(op) {
@@ -280,25 +295,28 @@
   }
 
   function spawnEnemy() {
-    const x = LANE_X + 30 + Math.random() * (LANE_W - 60);
+    // Spawn within the lane at the spawn screen y (top of viewport ≈ y=0)
+    const spawnLane = laneAtY(0);
+    const x = spawnLane.x + 20 + Math.random() * (spawnLane.w - 40);
     enemies.push({
       worldY: nextEnemyY,
       x, w: 32, h: 36,
-      hp: 1 + Math.floor(distance / 600),
+      hp: 1 + Math.floor(distance / 450),         // scales faster (was 600)
       type: 'shadow',
     });
-    nextEnemyY -= 220 + Math.random() * 180;
+    nextEnemyY -= 170 + Math.random() * 140;       // closer spacing (was 220-400)
   }
 
   function spawnBoss() {
-    // Spawn just above the visible top so it slides in fast (~1 second)
+    const hp = 130 + Math.floor(distance / 350) * 40;  // tougher (was 80, +30 per 400m)
+    // Boss sits at the top of the lane, sized to fit the narrow upper trapezoid
+    const topLane = laneAtY(H * 0.18);
     boss = {
-      worldY: camY - 90,           // 90px above viewport top, lands quickly
-      hp: 80 + Math.floor(distance / 400) * 30,
-      hpMax: 80 + Math.floor(distance / 400) * 30,
-      w: LANE_W - 40,
-      h: 80,
-      x: LANE_X + 20,
+      worldY: camY - 90,
+      hp, hpMax: hp,
+      w: topLane.w - 20,
+      h: 70,
+      x: topLane.x + 10,
       defeated: false,
       defeatT: 0,
     };
@@ -315,8 +333,8 @@
       else return;
     }
 
-    // Speed ramp
-    scrollSpeed = 3.2 + Math.min(3.0, distance / 1500);
+    // Speed ramp — base 3.8, climbs to 8.0 by 3000m (was capped at 6.2)
+    scrollSpeed = 3.8 + Math.min(4.2, distance / 800);
 
     // Boss freezes scroll
     const scrolling = !boss || boss.defeated;
@@ -332,7 +350,9 @@
     move += Math.max(-1, Math.min(1, steerInput));
     steerInput *= 0.7;
     leaderX += move * 5;
-    leaderX = Math.max(LANE_X + 30, Math.min(LANE_RIGHT - 30, leaderX));
+    // Steering bounds use the lane width AT the leader's y (bottom of screen)
+    const leaderLane = laneAtY(LEADER_Y);
+    leaderX = Math.max(leaderLane.x + 26, Math.min(leaderLane.right - 26, leaderX));
 
     // Clones follow leader in formation: phyllotaxis-ish spread
     for (let i = 0; i < clones.length; i++) {
@@ -354,7 +374,7 @@
     while (nextEnemyY > camY - H - 50 && !boss) spawnEnemy();
     if (!boss && distance > nextBossDistance) {
       spawnBoss();
-      nextBossDistance = distance + 1200 + Math.random() * 600;
+      nextBossDistance = distance + 900 + Math.random() * 400;  // bosses every ~1000m (was 1500m)
     }
 
     // Auto-fire from clones (more clones → more bullets / faster)
@@ -387,11 +407,14 @@
     // Update enemies — they descend toward leader at their own speed,
     // PLUS the world scrolls when not fighting boss
     for (const e of enemies) {
-      e.worldY += scrolling ? 0 : 1.6;  // during boss, enemies move on their own
+      e.worldY += scrolling ? 0 : 1.6;
       e.screenY = e.worldY - camY;
       // Gentle drift toward leader
-      if (e.x < leaderX - 1) e.x += 0.5;
-      else if (e.x > leaderX + 1) e.x -= 0.5;
+      if (e.x < leaderX - 1) e.x += 0.6;
+      else if (e.x > leaderX + 1) e.x -= 0.6;
+      // Clamp inside the lane at this screen y
+      const lane = laneAtY(e.screenY);
+      e.x = Math.max(lane.x + 14, Math.min(lane.right - 14, e.x));
     }
 
     // Bullet vs enemy collision
@@ -513,31 +536,61 @@
   // RENDER
   // ============================================================================
   function drawBg() {
-    // Lane gradient
+    // Background outside the lane (dark forest)
     ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
+
+    // Lane: trapezoid — wider at bottom for over-the-shoulder perspective
+    const top = laneAtY(0), bot = laneAtY(H);
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, '#1a0e3a');
     g.addColorStop(1, '#0f0820');
-    ctx.fillStyle = g; ctx.fillRect(LANE_X, 0, LANE_W, H);
-    // Lane edges
-    ctx.fillStyle = 'rgba(255, 92, 184, 0.18)';
-    ctx.fillRect(LANE_X - 4, 0, 4, H);
-    ctx.fillRect(LANE_RIGHT, 0, 4, H);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(top.x, 0);
+    ctx.lineTo(top.right, 0);
+    ctx.lineTo(bot.right, H);
+    ctx.lineTo(bot.x, H);
+    ctx.closePath();
+    ctx.fill();
 
-    // Moving lane lines for depth — dashed lines that scroll with camY
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    // Glowing pink lane edges (converging for perspective)
+    ctx.strokeStyle = 'rgba(255, 92, 184, 0.55)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(top.x, 0); ctx.lineTo(bot.x, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(top.right, 0); ctx.lineTo(bot.right, H); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Inner dashed lane dividers — converge toward vanishing point + scroll
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([16, 18]);
-    const offset = (-camY) % 34;
+    ctx.setLineDash([18, 22]);
+    const offset = (-camY) % 40;
     ctx.lineDashOffset = -offset;
     for (let i = 1; i < 4; i++) {
-      const x = LANE_X + (LANE_W * i) / 4;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      const tx = top.x + (top.w * i) / 4;
+      const bx = bot.x + (bot.w * i) / 4;
+      ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(bx, H); ctx.stroke();
     }
     ctx.setLineDash([]);
 
+    // Horizontal "rungs" that shrink toward the top — perspective floor lines
+    ctx.strokeStyle = 'rgba(156, 214, 255, 0.10)';
+    for (let i = 0; i < 12; i++) {
+      // World-space y, scrolling with camY, mapped to screen y via parallax
+      const worldY = (-camY + i * 90) % 1080;
+      // Use exponential mapping so closer rungs are spaced wider
+      const t = (worldY / 1080);
+      const screenY = t * H;
+      const lane = laneAtY(screenY);
+      ctx.beginPath();
+      ctx.moveTo(lane.x, screenY);
+      ctx.lineTo(lane.right, screenY);
+      ctx.stroke();
+    }
+
     // Ambient drifting dots
-    ctx.fillStyle = 'rgba(255, 92, 184, 0.5)';
+    ctx.fillStyle = 'rgba(255, 92, 184, 0.45)';
     for (let i = 0; i < 12; i++) {
       const px = (Math.sin(i * 12.9 + (-camY) * 0.001) * 0.5 + 0.5) * W;
       const py = ((-camY * 0.5 + i * 80) % H + H) % H;
@@ -549,33 +602,37 @@
     for (const g of gates) {
       const sy = g.screenY = g.worldY - camY;
       if (sy < -100 || sy > H + 100) continue;
-      drawGateHalf(g.left, sy, g.h);
-      drawGateHalf(g.right, sy, g.h);
+      // Width of the gate matches lane width at this screen Y
+      const lane = laneAtY(sy + g.h / 2);
+      const halfW = lane.w / 2;
+      // Update half geometry to current screen position
+      g.left.x  = lane.x;
+      g.left.w  = halfW;
+      g.right.x = lane.x + halfW;
+      g.right.w = halfW;
+      // Scale label size by perspective (smaller when far)
+      const scale = 0.55 + 0.45 * Math.max(0, Math.min(1, sy / H));
+      drawGateHalf(g.left, sy, g.h, scale);
+      drawGateHalf(g.right, sy, g.h, scale);
     }
   }
-  function drawGateHalf(half, y, h) {
-    const a = half.hit ? 0.15 : 0.55;
-    ctx.fillStyle = half.color.replace(')', ',' + a + ')').replace('#', 'rgba(').replace(/^rgba\(([0-9a-f]+)/i, (m, hex) => {
-      // not actually used because color is hex; build rgba manually below
-      return m;
-    });
-    // simpler: parse hex manually
+  function drawGateHalf(half, y, h, scale) {
     const c = hexToRgb(half.color);
+    const a = half.hit ? 0.15 : 0.55;
     ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${a})`;
     ctx.fillRect(half.x, y, half.w, h);
     ctx.strokeStyle = half.color;
     ctx.lineWidth = 2;
     ctx.strokeRect(half.x + 1, y + 1, half.w - 2, h - 2);
-    // glow stripe
     if (!half.hit) {
       ctx.shadowColor = half.color; ctx.shadowBlur = 12;
       ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${0.3})`;
       ctx.fillRect(half.x + 4, y + 4, half.w - 8, h - 8);
       ctx.shadowBlur = 0;
     }
-    // label
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px system-ui, sans-serif';
+    const fontSize = Math.round(28 * scale);
+    ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(half.label, half.x + half.w / 2, y + h / 2 + 1);
   }
@@ -588,22 +645,27 @@
     for (const e of enemies) {
       const y = e.screenY;
       if (y < -50 || y > H + 50) continue;
-      ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 14;
-      // Shadow body
+      // Perspective scale — smaller when far (top of screen)
+      const s = 0.55 + 0.45 * Math.max(0, Math.min(1, y / H));
+      const w = e.w * s, h = e.h * s;
+      ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 14 * s;
       ctx.fillStyle = '#3a0a55';
-      ctx.beginPath(); ctx.ellipse(e.x, y, e.w/2, e.h/2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(e.x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
-      // Eyes
       ctx.fillStyle = '#ff3030';
-      ctx.beginPath(); ctx.arc(e.x - 6, y - 3, 3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(e.x + 6, y - 3, 3, 0, Math.PI*2); ctx.fill();
-      // angry mouth
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(e.x - 5, y + 6); ctx.lineTo(e.x - 2, y + 4); ctx.lineTo(e.x + 1, y + 6); ctx.lineTo(e.x + 4, y + 4); ctx.lineTo(e.x + 7, y + 6); ctx.stroke();
-      // HP marker if multi-HP
+      ctx.beginPath(); ctx.arc(e.x - 6*s, y - 3*s, 3*s, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x + 6*s, y - 3*s, 3*s, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * s;
+      ctx.beginPath();
+      ctx.moveTo(e.x - 5*s, y + 6*s); ctx.lineTo(e.x - 2*s, y + 4*s);
+      ctx.lineTo(e.x + 1*s, y + 6*s); ctx.lineTo(e.x + 4*s, y + 4*s);
+      ctx.lineTo(e.x + 7*s, y + 6*s);
+      ctx.stroke();
       if (e.hp > 1) {
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
-        ctx.fillText(String(e.hp), e.x, y + e.h/2 + 14);
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.round(11 * s)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.fillText(String(e.hp), e.x, y + h/2 + 12 * s);
       }
     }
   }
