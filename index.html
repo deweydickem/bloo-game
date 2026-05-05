@@ -193,6 +193,7 @@
   .thumb { height: 220px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
   .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
+  .thumb-tower  { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
   .thumb svg { width: 100%; height: 100%; }
 
   .body { padding: 18px 22px 22px; }
@@ -427,6 +428,62 @@
           <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
           <div class="play-row">
             <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
+            <span class="play">PLAY ▸</span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="tower.html" aria-label="Play Bloo Defense">
+        <div class="thumb thumb-tower">
+          <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="laneT" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1a0e30"/>
+                <stop offset="100%" stop-color="#2a1845"/>
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#laneT)"/>
+            <!-- Grid lines -->
+            <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
+              <path d="M 60 20 H 300 M 60 60 H 300 M 60 100 H 300 M 60 140 H 300 M 60 180 H 300"/>
+              <path d="M 60 20 V 200 M 100 20 V 200 M 140 20 V 200 M 180 20 V 200 M 220 20 V 200 M 260 20 V 200 M 300 20 V 200"/>
+            </g>
+            <!-- Path (winding) -->
+            <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,92,184,0.55)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
+            <!-- Spawn portal at top -->
+            <circle cx="180" cy="20" r="8" fill="#ff5cb8"/>
+            <!-- Goal crystal at bottom -->
+            <polygon points="260,184 273,200 260,216 247,200" fill="#9cd6ff"/>
+            <!-- Towers (Bloos) -->
+            <g transform="translate(140, 110)">
+              <circle cx="0" cy="0" r="14" fill="#ff8a3a"/>
+              <circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/>
+              <circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/>
+            </g>
+            <g transform="translate(220, 110)">
+              <circle cx="0" cy="0" r="14" fill="#9cd6ff"/>
+              <circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/>
+              <circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/>
+            </g>
+            <g transform="translate(220, 60)">
+              <circle cx="0" cy="0" r="14" fill="#c46cff"/>
+              <circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/>
+              <circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/>
+            </g>
+            <!-- Enemy on path -->
+            <circle cx="100" cy="115" r="10" fill="#3a0a55"/>
+            <circle cx="97" cy="113" r="2" fill="#ff3030"/><circle cx="103" cy="113" r="2" fill="#ff3030"/>
+          </svg>
+        </div>
+        <div class="body">
+          <div class="title-row">
+            <h2 class="game-title">Bloo Defense</h2>
+            <span class="badge new">NEW</span>
+          </div>
+          <p class="desc">Open-grid tower defense. Build a maze of elemental Bloo towers, defend the portal through 8 escalating waves.</p>
+          <div class="play-row">
+            <span class="meta">Bloo&nbsp;·&nbsp;Tower Defense</span>
             <span class="play">PLAY ▸</span>
           </div>
         </div>
