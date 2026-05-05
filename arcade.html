@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0716" />
+<title>Bloo Arcade</title>
+<style>
+  :root {
+    --bg-1: #0a0716;
+    --pink: #ff5cb8;
+    --pink-2: #ff8de0;
+    --cyan: #9cd6ff;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg-1); }
+  html, body { margin: 0; padding: 0; color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; min-height: 100%; }
+  /* body MUST stay transparent — z-index: -2 image lives behind it. */
+  body {
+    background: transparent;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 36px 20px 60px;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  /* ---- Painted background ---- */
+  .bg-img {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    object-fit: cover;
+    object-position: center center;
+    z-index: -2;
+    display: block;
+  }
+  .bg-vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background:
+      linear-gradient(180deg, rgba(10, 7, 22, 0.45) 0%, rgba(10, 7, 22, 0) 18%, rgba(10, 7, 22, 0) 78%, rgba(10, 7, 22, 0.55) 100%);
+  }
+
+  /* ---- Header ---- */
+  header { text-align: center; margin: 8px 0 30px; position: relative; z-index: 1; }
+  h1 {
+    margin: 0; font-size: clamp(40px, 7vw, 76px); font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    animation: titleGlow 4s ease-in-out infinite;
+  }
+  @keyframes titleGlow {
+    0%, 100% { filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.5)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
+    50%      { filter: drop-shadow(0 0 26px rgba(255, 92, 184, 0.85)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
+  }
+  .subtitle {
+    color: #fff; margin-top: 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(255, 92, 184, 0.5), 0 2px 4px rgba(0,0,0,0.7);
+    opacity: 0.85;
+  }
+
+  /* ---- Cards ---- */
+  .grid {
+    display: grid; gap: 20px;
+    grid-template-columns: repeat(2, minmax(0, 320px));
+    justify-content: center;
+    position: relative; z-index: 1;
+    max-width: 720px; width: 100%;
+  }
+  /* Mobile: stack to 1 column */
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; gap: 14px; max-width: 360px; }
+  }
+  .card {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    background: rgba(20, 8, 40, 0.65);
+    border: 1.5px solid rgba(255, 92, 184, 0.35);
+    box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 28px rgba(255, 92, 184, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    text-decoration: none; color: #fff;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    cursor: pointer;
+    display: block;
+  }
+  .card:hover, .card:focus {
+    transform: translateY(-6px);
+    box-shadow: 0 22px 48px rgba(0,0,0,.7), 0 0 50px rgba(255, 92, 184, 0.45);
+    border-color: rgba(255, 92, 184, 0.7);
+    outline: none;
+  }
+  .card:active { transform: translateY(-2px); }
+
+  .thumb { height: 140px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
+  .thumb-runner     { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
+  .thumb-tower      { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
+
+  /* Painted-asset scenes inside each thumb */
+  .scene { position: absolute; inset: 0; }
+  .scene img { position: absolute; image-rendering: auto; pointer-events: none; }
+
+  /* PLATFORMER scene: grass strip across the bottom + Bloo standing on it */
+  .scene-platformer .ground {
+    bottom: 0; left: 0; right: 0; height: 36px; width: 100%;
+    object-fit: cover; object-position: center top;
+    filter: drop-shadow(0 -2px 6px rgba(0,0,0,0.5));
+  }
+  .scene-platformer .hero {
+    bottom: 26px; left: 50%; transform: translateX(-50%);
+    height: 92px; filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.4));
+  }
+  .scene-platformer .coin {
+    height: 24px; bottom: 70px;
+    filter: drop-shadow(0 0 10px rgba(255, 200, 80, 0.6));
+    animation: bobLight 2s ease-in-out infinite;
+  }
+  @keyframes bobLight { 0%,100%{ transform: translateY(0);} 50%{transform:translateY(-4px);} }
+
+  /* TOWER DEFENSE scene: grass + winding path tiles + a tower + an enemy */
+  .scene-tower .grass-row {
+    bottom: 0; left: 0; right: 0; height: 36px; width: 100%;
+    object-fit: cover; object-position: center top;
+    filter: drop-shadow(0 -2px 6px rgba(0,0,0,0.5));
+  }
+  .scene-tower .path {
+    height: 36px; width: 36px; bottom: 0;
+    image-rendering: auto;
+  }
+  .scene-tower .tower {
+    bottom: 28px; height: 76px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 12px rgba(255,180,80,0.4));
+  }
+  .scene-tower .enemy {
+    bottom: 18px; height: 52px;
+    filter: drop-shadow(0 0 10px rgba(160, 60, 200, 0.6));
+  }
+  .scene-tower .portal {
+    top: 6px; right: 14px; height: 50px;
+    filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.6));
+    animation: bobLight 3s ease-in-out infinite;
+  }
+
+  /* CROWD RUNNER scene: trapezoid lane + crowd of Bloos */
+  .scene-runner .lane {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(255,92,184,0.15) 0%, rgba(255,92,184,0) 80%),
+      linear-gradient(180deg, #1a0e30 0%, #2a134a 100%);
+    clip-path: polygon(35% 0%, 65% 0%, 95% 100%, 5% 100%);
+  }
+  .scene-runner .lane-edge {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: rgba(255, 92, 184, 0.7);
+    box-shadow: 0 0 10px rgba(255, 92, 184, 0.6);
+  }
+  .scene-runner .lane-edge.left  { left: 35%; transform: skewX(0); transform-origin: top; }
+  .scene-runner .lane-edge.right { left: 65%; }
+  /* Use clip-path-friendly approach: draw two slanted lines via SVG instead */
+  .scene-runner svg.edges {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .scene-runner .gate {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 4px;
+  }
+  .scene-runner .gate .half {
+    width: 64px; height: 30px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 16px; color: #fff;
+  }
+  .scene-runner .gate .good { background: rgba(80,255,140,0.30); border: 2px solid #5fe87a; box-shadow: 0 0 12px rgba(95,232,122,0.5); }
+  .scene-runner .gate .bad  { background: rgba(255,90,140,0.28); border: 2px solid #ff5c8a; box-shadow: 0 0 12px rgba(255,92,138,0.5); }
+  .scene-runner .crowd {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2px; align-items: flex-end;
+  }
+  .scene-runner .crowd img {
+    position: relative; height: 38px;
+    filter: drop-shadow(0 0 8px rgba(255, 92, 184, 0.4));
+  }
+  .scene-runner .crowd img:nth-child(1), .scene-runner .crowd img:nth-child(5) { height: 32px; opacity: 0.85; }
+
+  .body { padding: 14px 18px 16px; }
+  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .game-title { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: .3px; }
+  .badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: rgba(255, 92, 184, 0.18);
+    color: var(--pink-2);
+    border: 1px solid rgba(255, 92, 184, 0.4);
+    letter-spacing: .5px;
+  }
+  .badge.new { background: rgba(156, 214, 255, 0.18); color: var(--cyan); border-color: rgba(156, 214, 255, 0.4); }
+  p.desc { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.55; margin: 8px 0 0; }
+  .play-row { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .play {
+    background: linear-gradient(135deg, var(--pink) 0%, #c038ff 100%);
+    color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .8px;
+    padding: 10px 18px; border-radius: 999px; border: 0;
+    box-shadow: 0 6px 18px rgba(255, 92, 184, 0.45);
+    transition: transform .15s ease;
+  }
+  .card:hover .play { transform: translateX(4px); }
+  .meta { color: rgba(255,255,255,0.4); font-size: 12px; }
+
+  footer {
+    margin-top: 40px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px; text-align: center; position: relative; z-index: 1;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  }
+  footer a { color: var(--pink-2); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <img class="bg-img" src="bg.jpg" alt="" aria-hidden="true" />
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <header>
+    <h1>Bloo Arcade</h1>
+    <div class="subtitle">A growing collection of mini-games</div>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="game.html" aria-label="Play Forest of Embers">
+      <div class="thumb thumb-platformer">
+        <div class="scene scene-platformer">
+          <img class="ground" src="sprites/td/tiles/tile_grass.png" alt="" aria-hidden="true">
+          <img class="hero" src="sprites/character/idle_1.png" alt="" aria-hidden="true">
+          <img class="coin" src="sprites/collectibles/coin_1.png" alt="" aria-hidden="true" style="left: 22%;">
+          <img class="coin" src="sprites/collectibles/coin_1.png" alt="" aria-hidden="true" style="right: 18%; animation-delay: .4s;">
+        </div>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Forest of Embers</h2>
+          <span class="badge">3 LEVELS</span>
+        </div>
+        <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
+          <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="tower.html" aria-label="Play Bloo Defense">
+      <div class="thumb thumb-tower">
+        <div class="scene scene-tower">
+          <img class="grass-row" src="sprites/td/tiles/tile_grass.png" alt="" aria-hidden="true">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 28%;">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 44%;">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 60%;">
+          <img class="enemy" src="sprites/td/enemies/enemy_basic.png" alt="" aria-hidden="true" style="left: 32%;">
+          <img class="tower" src="sprites/td/towers/tower_basic_blaster.png" alt="" aria-hidden="true" style="left: 8%;">
+          <img class="tower" src="sprites/td/towers/tower_lightning.png" alt="" aria-hidden="true" style="right: 8%;">
+          <img class="portal" src="sprites/td/tiles/tile_portal.png" alt="" aria-hidden="true">
+        </div>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Bloo Defense</h2>
+          <span class="badge new">NEW</span>
+        </div>
+        <p class="desc">Open-grid tower defense. Build a maze of elemental Bloo towers, defend the portal through endless escalating waves.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Tower Defense</span>
+          <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="runner.html" aria-label="Play Crowd Runner">
+      <div class="thumb thumb-runner">
+        <div class="scene scene-runner">
+          <div class="lane"></div>
+          <svg class="edges" viewBox="0 0 360 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="126" y1="0" x2="18" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
+            <line x1="234" y1="0" x2="342" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
+          </svg>
+          <div class="gate">
+            <div class="half good">×2</div>
+            <div class="half bad">−5</div>
+          </div>
+          <div class="crowd">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+          </div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Crowd Runner</h2>
+          <span class="badge new">NEW</span>
+        </div>
+        <p class="desc">Top-down endless auto-shooter. Steer through gates to multiply, tap to fire, mow down enemies, survive boss walls.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Endless</span>
+          <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <footer>
+    <span>More minigames coming soon · </span>
+    <a href="https://github.com/deweydickem/bloo-game" target="_blank" rel="noopener">source</a>
+  </footer>
+</body>
+</html>
