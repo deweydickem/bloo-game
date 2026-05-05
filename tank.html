@@ -103,7 +103,7 @@
 <button class="btn" id="btn-mute" title="Mute (M)">🔊</button>
 <button class="btn" id="btn-reset" title="Reset tank">RESET</button>
 
-<div id="hud-wallet"><img id="walletIcon" src="sprites/td/ui/ui_currency_orb.png" alt=""><span class="num" id="crystals">0</span></div>
+<div id="hud-wallet"><img id="walletIcon" src="sprites/tank/currency/coins.png" alt=""><span class="num" id="crystals">0</span></div>
 <div id="hud-pop"><b id="popCount">0</b> bloos · <b id="elderCount">0</b> elders</div>
 <div id="tip">tap empty water to drop food &nbsp;·&nbsp; tap a bloo for info</div>
 
@@ -161,13 +161,18 @@
   // ============================================================================
   // ASSETS
   // ============================================================================
+  const FISH_VARIANTS = ['cyan','magenta','green','lime','orange','red','yellow','navy','gold','blue_dark','silver','jade'];
+  const EGG_VARIANTS  = ['common','rare','epic','legendary'];
+  const FOOD_VARIANTS = ['basic','super','golden','energy'];
   const ASSET_LIST = {
     bg:    'bg.jpg',
-    bloo:  'sprites/td/hero/blue_spirit.png',
-    egg:   'sprites/td/ui/ui_gem.png',
-    food:  'sprites/td/ui/ui_currency_orb.png',
-    coin:  'sprites/td/misc/coin.png',
+    coin:  'sprites/tank/currency/coins.png',
+    gem:   'sprites/tank/currency/gems.png',
+    food:  'sprites/tank/food/golden.png',
   };
+  for (const v of FISH_VARIANTS) ASSET_LIST['fish_' + v] = `sprites/tank/variants/${v}.png`;
+  for (const v of EGG_VARIANTS)  ASSET_LIST['egg_'  + v] = `sprites/tank/eggs/${v}.png`;
+  for (const v of FOOD_VARIANTS) ASSET_LIST['food_' + v] = `sprites/tank/food/${v}.png`;
   const A = {};
   let loaded = 0;
   for (const [k, src] of Object.entries(ASSET_LIST)) {
@@ -230,15 +235,18 @@
   // Each species defines its hue rotation from the base blue sprite, swatch
   // CSS color (for shop + selection rings), egg price, sell multiplier, and
   // hatch weight (how often a wild egg from an elder rolls this species).
+  // sprite     -> which painted fish variant to draw
+  // eggSprite  -> which painted egg to draw
+  // animated   -> 'aurora' = gentle hue cycle, 'rainbow' = fast hue cycle
   const SPECIES = {
-    common:  { name: 'Common Blue',  hue:   0, sat: 1.0, bri: 1.0, color: '#1f6fd1', eggPrice: 10,  sellMul: 1.0, weight: 60, animated: false },
-    verdant: { name: 'Verdant',      hue: 110, sat: 1.1, bri: 1.0, color: '#3fc864', eggPrice: 25,  sellMul: 1.6, weight: 22, animated: false },
-    sunset:  { name: 'Sunset',       hue: 210, sat: 1.2, bri: 1.0, color: '#ff8a3a', eggPrice: 25,  sellMul: 1.6, weight: 22, animated: false },
-    crimson: { name: 'Crimson',      hue: 170, sat: 1.4, bri: 0.95,color: '#e03060', eggPrice: 40,  sellMul: 2.2, weight: 12, animated: false },
-    shadow:  { name: 'Shadow',       hue:  35, sat: 0.4, bri: 0.55,color: '#5a2090', eggPrice: 60,  sellMul: 2.8, weight:  8, animated: false },
-    aurora:  { name: 'Aurora',       hue:  60, sat: 1.4, bri: 1.05,color: '#80e0ff', eggPrice: 100, sellMul: 4.0, weight:  4, animated: 'aurora' },
-    golden:  { name: 'Golden',       hue: 200, sat: 1.6, bri: 1.15,color: '#ffd54a', eggPrice: 200, sellMul: 6.0, weight:  2, animated: false },
-    rainbow: { name: 'Rainbow',      hue:   0, sat: 1.5, bri: 1.1, color: '#ff5cb8', eggPrice: 400, sellMul: 10.0, weight: 1, animated: 'rainbow' },
+    common:  { name: 'Common Blue', sprite: 'cyan',      eggSprite: 'common',    color: '#3fa9ff', eggPrice: 10,  sellMul: 1.0,  weight: 60, animated: false },
+    verdant: { name: 'Verdant',     sprite: 'green',     eggSprite: 'common',    color: '#3fc864', eggPrice: 25,  sellMul: 1.6,  weight: 22, animated: false },
+    sunset:  { name: 'Sunset',      sprite: 'orange',    eggSprite: 'common',    color: '#ff8a3a', eggPrice: 25,  sellMul: 1.6,  weight: 22, animated: false },
+    crimson: { name: 'Crimson',     sprite: 'red',       eggSprite: 'rare',      color: '#e03060', eggPrice: 40,  sellMul: 2.2,  weight: 12, animated: false },
+    shadow:  { name: 'Shadow',      sprite: 'blue_dark', eggSprite: 'rare',      color: '#5a2090', eggPrice: 60,  sellMul: 2.8,  weight:  8, animated: false },
+    aurora:  { name: 'Aurora',      sprite: 'lime',      eggSprite: 'epic',      color: '#80ffd0', eggPrice: 100, sellMul: 4.0,  weight:  4, animated: 'aurora' },
+    golden:  { name: 'Golden',      sprite: 'gold',      eggSprite: 'epic',      color: '#ffd54a', eggPrice: 200, sellMul: 6.0,  weight:  2, animated: false },
+    rainbow: { name: 'Rainbow',     sprite: 'silver',    eggSprite: 'legendary', color: '#ff5cb8', eggPrice: 400, sellMul: 10.0, weight:  1, animated: 'rainbow' },
   };
   const SPECIES_IDS = Object.keys(SPECIES);
   function rollWildSpecies() {
@@ -364,12 +372,12 @@
       const row = document.createElement('div');
       row.className = 'shop-row';
       row.innerHTML = `
-        <div class="swatch" style="background:${sp.color}; color:${sp.color};"></div>
+        <div class="swatch" style="background-image:url('sprites/tank/variants/${sp.sprite}.png'); background-size:contain; background-position:center; background-repeat:no-repeat; background-color:transparent; box-shadow: 0 0 14px ${sp.color};"></div>
         <div class="info">
           <div class="name">${sp.name}</div>
           <div class="meta">Adult sells: ~${Math.round(STAGE_SELL[3]*sp.sellMul)} · Elder sells: ~${Math.round(STAGE_SELL[4]*sp.sellMul)}</div>
         </div>
-        <div class="price"><img src="sprites/td/ui/ui_currency_orb.png">${sp.eggPrice}</div>
+        <div class="price"><img src="sprites/tank/currency/coins.png">${sp.eggPrice}</div>
         <button class="buy" data-buy="${id}" ${crystals >= sp.eggPrice && bloos.length < 16 ? '' : 'disabled'}>BUY</button>
       `;
       shopList.appendChild(row);
@@ -419,8 +427,13 @@
     infoName.textContent = sp.name + ' Bloo';
     infoStage.textContent = STAGE_NAMES[b.stage].toUpperCase();
     infoMeta.textContent = `Sell mult: ×${sp.sellMul} · Egg cost: ${sp.eggPrice}`;
-    infoSwatch.style.background = sp.color;
+    infoSwatch.style.backgroundImage = `url('sprites/tank/variants/${sp.sprite}.png')`;
+    infoSwatch.style.backgroundSize = 'contain';
+    infoSwatch.style.backgroundPosition = 'center';
+    infoSwatch.style.backgroundRepeat = 'no-repeat';
+    infoSwatch.style.backgroundColor = 'transparent';
     infoSwatch.style.color = sp.color;
+    infoSwatch.style.boxShadow = `0 0 16px ${sp.color}`;
     const hungerPct = Math.max(0, Math.min(1, b.hunger / 100));
     infoHungerBar.style.width = (hungerPct * 100) + '%';
     infoHungerBar.style.background = hungerPct > 0.5 ? '#5fe87a' : (hungerPct > 0.25 ? '#ffd54a' : '#ff5c8a');
@@ -647,8 +660,9 @@
 
   function drawFood(f) {
     const wob = Math.sin(f.age * 0.1) * 1.5;
-    ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 12;
-    if (ok('food')) ctx.drawImage(A.food, f.x - 11, f.y - 11 + wob, 22, 22);
+    const sz = 26;
+    ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 14;
+    if (ok('food_basic')) ctx.drawImage(A.food_basic, f.x - sz/2, f.y - sz/2 + wob, sz, sz);
     else { ctx.fillStyle = '#9cd6ff'; ctx.beginPath(); ctx.arc(f.x, f.y + wob, 8, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
   }
@@ -660,13 +674,19 @@
     const sp = SPECIES[b.species];
     const glow = STAGE_GLOW[b.stage];
 
-    // Egg stage = small gem-like crystal (tinted)
+    // Egg stage = painted egg (color depends on rarity)
     if (b.stage === 0) {
+      const eggKey = 'egg_' + sp.eggSprite;
       ctx.shadowColor = sp.color; ctx.shadowBlur = glow;
-      if (ok('egg')) {
+      if (ok(eggKey)) {
+        const img = A[eggKey];
+        const ar = img.width / img.height;
+        const eh = sz * 1.2, ew = eh * ar;
+        // gentle wobble
         ctx.save();
-        ctx.filter = `hue-rotate(${sp.hue}deg) saturate(${sp.sat}) brightness(${sp.bri})`;
-        ctx.drawImage(A.egg, cx - sz/2, cy - sz/2, sz, sz);
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.sin(b.bobPhase * 0.6) * 0.06);
+        ctx.drawImage(img, -ew/2, -eh/2, ew, eh);
         ctx.restore();
       } else {
         ctx.fillStyle = sp.color;
@@ -678,20 +698,21 @@
       return;
     }
 
-    // Live Bloo: hue-rotated painted sprite + glow
-    if (ok('bloo')) {
-      const img = A.bloo;
-      const sw = img.width, sh = Math.floor(img.height * 0.88);
+    // Live Bloo: painted variant sprite + glow
+    const fishKey = 'fish_' + sp.sprite;
+    if (ok(fishKey)) {
+      const img = A[fishKey];
+      const sw = img.width, sh = img.height;
       const targetH = sz * 1.2;
       const ar = sw / sh;
       const targetW = targetH * ar;
       ctx.shadowColor = sp.color; ctx.shadowBlur = glow;
-      let hue = sp.hue;
-      if (sp.animated === 'rainbow') hue = (animT * 1.5) % 360;
-      else if (sp.animated === 'aurora') hue = sp.hue + Math.sin(animT * 0.04) * 30;
       ctx.save();
-      ctx.filter = `hue-rotate(${hue}deg) saturate(${sp.sat}) brightness(${sp.bri})`;
+      // Animated species get a hue cycle on top of the painted sprite
+      if (sp.animated === 'rainbow') ctx.filter = `hue-rotate(${(animT * 2.5) % 360}deg) saturate(1.4)`;
+      else if (sp.animated === 'aurora') ctx.filter = `hue-rotate(${Math.sin(animT * 0.03) * 60}deg) saturate(1.2) brightness(1.05)`;
       ctx.translate(cx, cy);
+      // Painted sprites face right by default — flip when moving left
       if (b.facing < 0) ctx.scale(-1, 1);
       ctx.drawImage(img, 0, 0, sw, sh, -targetW/2, -targetH/2, targetW, targetH);
       ctx.restore();
