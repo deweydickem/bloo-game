@@ -1,21 +1,34 @@
 // Bloo Arcade — shared leaderboard library
-// Local-first: uses localStorage. Designed so a cloud backend (Firebase / Supabase / Vercel KV)
-// can be swapped in later without touching game code — just replace _store with a remote impl.
+// Cloud-backed via Firebase Firestore, with localStorage cache + offline fallback.
+// All score writes are mirrored to localStorage immediately so the UI never blocks
+// on the network; cloud writes are fire-and-forget. Reads prefer cloud, fall back
+// to local if Firebase isn't reachable.
 (function (global) {
   const NS = 'bloo';
   const KEY_USER = NS + '.username';
   const KEY_PREFIX = NS + '.scores.';
   const MAX_PER_GAME = 50;
 
-  // Game IDs and friendly metadata.
   const GAMES = {
     platformer: { name: 'Forest of Embers', metric: 'score', metricLabel: 'Score' },
     runner:     { name: 'Crowd Runner',     metric: 'score', metricLabel: 'Score' },
     tower:      { name: 'Bloo Defense',     metric: 'wave',  metricLabel: 'Wave'  },
   };
 
-  // ---------- storage abstraction ----------
-  const _store = {
+  // ----- Firebase config (public — secured by Firestore rules, not by hiding) -----
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBBdvKGTSn2dqm9UtxcNMQu9KZDFaspi5I",
+    authDomain: "bloo-13d22.firebaseapp.com",
+    projectId: "bloo-13d22",
+    storageBucket: "bloo-13d22.firebasestorage.app",
+    messagingSenderId: "60431164346",
+    appId: "1:60431164346:web:f7cda7bab797e8e6723383",
+  };
+  const ENABLE_CLOUD = true;
+  const FIREBASE_VERSION = '10.13.0';
+
+  // ----- localStorage shim (always-available, also used as offline cache) -----
+  const _local = {
     list(game) {
       try { return JSON.parse(localStorage.getItem(KEY_PREFIX + game) || '[]'); }
       catch (_) { return []; }
@@ -25,7 +38,33 @@
     }
   };
 
-  // ---------- username ----------
+  // ----- Firebase loader (dynamic ESM import; only loads when actually needed) -----
+  let _fb = null; // null = not tried, false = failed, object = ready
+  async function loadFirebase() {
+    if (_fb !== null) return _fb;
+    if (!ENABLE_CLOUD) return _fb = false;
+    try {
+      const appMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`);
+      const fsMod  = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
+      const app = appMod.initializeApp(FIREBASE_CONFIG);
+      const db = fsMod.getFirestore(app);
+      _fb = {
+        db,
+        collection: fsMod.collection,
+        addDoc: fsMod.addDoc,
+        getDocs: fsMod.getDocs,
+        query: fsMod.query,
+        orderBy: fsMod.orderBy,
+        limit: fsMod.limit,
+      };
+      return _fb;
+    } catch (e) {
+      console.warn('[BlooLB] Firebase load failed, using local only:', e);
+      return _fb = false;
+    }
+  }
+
+  // ----- username -----
   function getUsername() {
     try { return localStorage.getItem(KEY_USER) || ''; } catch (_) { return ''; }
   }
@@ -35,10 +74,8 @@
     try { localStorage.setItem(KEY_USER, name); } catch (_) {}
     return true;
   }
-  // Show the inline modal. Returns a promise that resolves with the chosen name.
   function promptUsername(opts = {}) {
     return new Promise((resolve) => {
-      // Inject styles once
       if (!document.getElementById('bloo-name-style')) {
         const s = document.createElement('style');
         s.id = 'bloo-name-style';
@@ -82,45 +119,81 @@
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
     });
   }
-  // Convenience: returns the saved username, prompting if not set.
   async function ensureUsername() {
-    let n = getUsername();
+    const n = getUsername();
     if (n) return n;
     return await promptUsername();
   }
 
-  // ---------- score IO ----------
+  // ----- score IO -----
+  function _localSubmit(game, entry) {
+    const list = _local.list(game);
+    list.push(entry);
+    list.sort((a, b) => b.score - a.score);
+    _local.save(game, list.slice(0, MAX_PER_GAME));
+  }
+
+  // submitScore: writes locally immediately, fires cloud write asynchronously.
+  // Returns the entry object (for tests / UI).
   function submitScore(game, score, meta) {
     if (!GAMES[game]) { console.warn('Unknown game id', game); return; }
-    const list = _store.list(game);
     const entry = {
       name: getUsername() || 'Anon',
       score: Number(score) || 0,
       date: Date.now(),
       meta: meta || {},
     };
-    list.push(entry);
-    list.sort((a, b) => b.score - a.score);
-    _store.save(game, list.slice(0, MAX_PER_GAME));
+    _localSubmit(game, entry);
+    // Fire-and-forget cloud write
+    (async () => {
+      const fb = await loadFirebase();
+      if (!fb) return;
+      try {
+        await fb.addDoc(fb.collection(fb.db, 'scores_' + game), entry);
+      } catch (e) {
+        console.warn('[BlooLB] cloud write failed:', e);
+      }
+    })();
     return entry;
   }
-  function getScores(game) {
-    return _store.list(game).slice().sort((a, b) => b.score - a.score);
+
+  // getScores: prefers cloud if available, falls back to local cache.
+  // Returns a Promise<Array> sorted by score desc.
+  async function getScores(game) {
+    const fb = await loadFirebase();
+    if (fb) {
+      try {
+        const q = fb.query(
+          fb.collection(fb.db, 'scores_' + game),
+          fb.orderBy('score', 'desc'),
+          fb.limit(MAX_PER_GAME)
+        );
+        const snap = await fb.getDocs(q);
+        const out = [];
+        snap.forEach(d => out.push(d.data()));
+        return out;
+      } catch (e) {
+        console.warn('[BlooLB] cloud read failed, using local:', e);
+      }
+    }
+    return _local.list(game).slice().sort((a, b) => b.score - a.score);
   }
-  // Cumulative: sum of each player's BEST score across all 3 games.
-  // Different games have different scales, so we normalize each game's scores
-  // to 0..1000 based on the all-time max for that game.
-  function getCumulative() {
-    const byUser = new Map();           // name → { games: { gameId: rawBest }, total: 0 }
-    const maxByGame = {};               // gameId → max raw
+
+  // Cumulative: aggregates each player's best score across all 3 games,
+  // normalizing each game to 0-1000 against its own all-time max.
+  async function getCumulative() {
+    const allScores = {};
     for (const g of Object.keys(GAMES)) {
-      const scores = _store.list(g);
+      allScores[g] = await getScores(g);
+    }
+    const byUser = new Map();
+    const maxByGame = {};
+    for (const g of Object.keys(GAMES)) {
       let max = 1;
-      for (const s of scores) if (s.score > max) max = s.score;
+      for (const s of allScores[g]) if (s.score > max) max = s.score;
       maxByGame[g] = max;
-      // best per name
       const bestByName = new Map();
-      for (const s of scores) {
+      for (const s of allScores[g]) {
         const cur = bestByName.get(s.name) || 0;
         if (s.score > cur) bestByName.set(s.name, s.score);
       }
@@ -129,7 +202,6 @@
         byUser.get(name).games[g] = best;
       }
     }
-    // Compute normalized total
     for (const u of byUser.values()) {
       let total = 0;
       for (const g of Object.keys(GAMES)) {
@@ -143,7 +215,6 @@
     return { entries: arr, maxByGame };
   }
 
-  // ---------- exposed API ----------
   global.BlooLB = {
     GAMES,
     getUsername, setUsername, promptUsername, ensureUsername,

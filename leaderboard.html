@@ -142,52 +142,59 @@
       return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
 
-    function renderBoard() {
+    async function renderBoard() {
       const me = (BlooLB.getUsername() || '').toLowerCase();
-      if (currentTab === 'cumulative') {
-        const { entries, maxByGame } = BlooLB.getCumulative();
-        const lines = [];
-        lines.push('<h2>Cumulative ranking</h2>');
-        lines.push('<div class="meta">Each game scored 0–1000 (relative to its all-time max), summed across the 3 games.</div>');
-        if (!entries.length) {
-          lines.push('<div class="empty">No scores yet — <a href="index.html">play a game</a> to start the board.</div>');
+      // Show a loading state while we fetch
+      boardEl.innerHTML = '<div class="empty">Loading scores…</div>';
+      try {
+        if (currentTab === 'cumulative') {
+          const { entries, maxByGame } = await BlooLB.getCumulative();
+          const lines = [];
+          lines.push('<h2>Cumulative ranking</h2>');
+          lines.push('<div class="meta">Each game scored 0–1000 (relative to its all-time max), summed across the 3 games.</div>');
+          if (!entries.length) {
+            lines.push('<div class="empty">No scores yet — <a href="index.html">play a game</a> to start the board.</div>');
+          } else {
+            lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">Forest</th><th style="text-align:right">Defense</th><th style="text-align:right">Runner</th><th style="text-align:right">Total</th></tr></thead><tbody>');
+            entries.slice(0, 30).forEach((e, i) => {
+              const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
+              const rank = i + 1;
+              const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+              const cell = (gid) => {
+                const raw = e.games[gid] || 0;
+                const max = maxByGame[gid] || 1;
+                const norm = Math.round((raw / max) * 1000);
+                return raw ? `${norm} <span style="color:rgba(255,255,255,0.35)">(${raw})</span>` : '<span style="color:rgba(255,255,255,0.25)">—</span>';
+              };
+              lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="gscore">${cell('platformer')}</td><td class="gscore">${cell('tower')}</td><td class="gscore">${cell('runner')}</td><td class="score">${e.total}</td></tr>`);
+            });
+            lines.push('</tbody></table>');
+          }
+          boardEl.innerHTML = lines.join('');
         } else {
-          lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">Forest</th><th style="text-align:right">Defense</th><th style="text-align:right">Runner</th><th style="text-align:right">Total</th></tr></thead><tbody>');
-          entries.slice(0, 30).forEach((e, i) => {
-            const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
-            const rank = i + 1;
-            const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
-            const cell = (gid) => {
-              const raw = e.games[gid] || 0;
-              const max = maxByGame[gid] || 1;
-              const norm = Math.round((raw / max) * 1000);
-              return raw ? `${norm} <span style="color:rgba(255,255,255,0.35)">(${raw})</span>` : '<span style="color:rgba(255,255,255,0.25)">—</span>';
-            };
-            lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="gscore">${cell('platformer')}</td><td class="gscore">${cell('tower')}</td><td class="gscore">${cell('runner')}</td><td class="score">${e.total}</td></tr>`);
-          });
-          lines.push('</tbody></table>');
+          const game = BlooLB.GAMES[currentTab];
+          const list = await BlooLB.getScores(currentTab);
+          const lines = [];
+          lines.push(`<h2>${game.name}</h2>`);
+          lines.push(`<div class="meta">Top runs · ${game.metricLabel.toLowerCase()}</div>`);
+          if (!list.length) {
+            const link = currentTab === 'platformer' ? 'game.html' : currentTab === 'tower' ? 'tower.html' : 'runner.html';
+            lines.push(`<div class="empty">No runs yet — <a href="${link}">play it</a> to set the first record.</div>`);
+          } else {
+            lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">' + game.metricLabel + '</th><th style="text-align:right">When</th></tr></thead><tbody>');
+            list.slice(0, 30).forEach((e, i) => {
+              const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
+              const rank = i + 1;
+              const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+              lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="score">${e.score.toLocaleString()}</td><td class="date">${fmtDate(e.date)}</td></tr>`);
+            });
+            lines.push('</tbody></table>');
+          }
+          boardEl.innerHTML = lines.join('');
         }
-        boardEl.innerHTML = lines.join('');
-      } else {
-        const game = BlooLB.GAMES[currentTab];
-        const list = BlooLB.getScores(currentTab);
-        const lines = [];
-        lines.push(`<h2>${game.name}</h2>`);
-        lines.push(`<div class="meta">Top runs · ${game.metricLabel.toLowerCase()}</div>`);
-        if (!list.length) {
-          const link = currentTab === 'platformer' ? 'game.html' : currentTab === 'tower' ? 'tower.html' : 'runner.html';
-          lines.push(`<div class="empty">No runs yet — <a href="${link}">play it</a> to set the first record.</div>`);
-        } else {
-          lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">' + game.metricLabel + '</th><th style="text-align:right">When</th></tr></thead><tbody>');
-          list.slice(0, 30).forEach((e, i) => {
-            const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
-            const rank = i + 1;
-            const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
-            lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="score">${e.score.toLocaleString()}</td><td class="date">${fmtDate(e.date)}</td></tr>`);
-          });
-          lines.push('</tbody></table>');
-        }
-        boardEl.innerHTML = lines.join('');
+      } catch (e) {
+        console.error(e);
+        boardEl.innerHTML = '<div class="empty">Failed to load scores. Refresh to retry.</div>';
       }
     }
 
