@@ -149,12 +149,15 @@
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   let W = 0, H = 0, DPR = 1;
+  let bgCanvas = null;     // cached static aquarium (gradient + sand + decor + vignette)
+  let bgCtx = null;
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     const r = canvas.getBoundingClientRect();
     W = Math.floor(r.width); H = Math.floor(r.height);
     canvas.width = W * DPR; canvas.height = H * DPR;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    bgCanvas = null;  // invalidate static-bg cache
   }
   window.addEventListener('resize', resize);
 
@@ -660,96 +663,109 @@
     return items;
   }
 
-  function drawBg() {
-    // 1) Vertical water gradient — bright cyan top → deep navy bottom
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
+  // Build the static aquarium background once into an offscreen canvas.
+  // Includes: water gradient, sandy floor, decor, vignette. Excludes the
+  // animated caustic shimmer + bubbles — those are cheap and drawn per-frame.
+  function buildStaticBg() {
+    bgCanvas = document.createElement('canvas');
+    bgCanvas.width = W; bgCanvas.height = H;
+    const bx = bgCanvas.getContext('2d');
+
+    // 1) Water gradient
+    const grad = bx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, '#1c5ea8');
     grad.addColorStop(0.4, '#103b78');
     grad.addColorStop(0.85, '#071e4a');
     grad.addColorStop(1, '#040f2c');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    bx.fillStyle = grad; bx.fillRect(0, 0, W, H);
 
-    // 2) Soft caustic light shimmer near the top — drifting glow blobs
+    // 2) Sandy floor strip
+    const floorY = H - 56;
+    const sandGrad = bx.createLinearGradient(0, floorY, 0, H);
+    sandGrad.addColorStop(0, 'rgba(240, 210, 150, 0.0)');
+    sandGrad.addColorStop(0.3, 'rgba(180, 150, 100, 0.55)');
+    sandGrad.addColorStop(1, 'rgba(120, 90, 55, 0.85)');
+    bx.fillStyle = sandGrad;
+    bx.fillRect(0, floorY, W, 56);
+    bx.fillStyle = 'rgba(220, 185, 130, 0.35)';
+    for (let i = 0; i < W; i += 8) {
+      const h = 4 + Math.sin(i * 0.07) * 2 + Math.cos(i * 0.13 + 1) * 1.5;
+      bx.fillRect(i, floorY + 2 - h, 8, h);
+    }
+    bx.fillStyle = 'rgba(255, 240, 200, 0.5)';
+    for (let i = 0; i < 60; i++) {
+      const x = (i * 53 + 7) % W;
+      const y = floorY + 8 + (i * 17 % 40);
+      bx.fillRect(x, y, 1.5, 1.5);
+    }
+
+    // 3) Painted decorations anchored to the floor (no expensive shadow blur —
+    //    we paint a soft fake shadow ellipse below each instead).
+    if (!_decorLayout) _decorLayout = buildDecorLayout();
+    for (const it of _decorLayout) {
+      const key = 'decor_' + it.which;
+      if (!ok(key)) continue;
+      const img = A[key];
+      const baseH = Math.min(160, H * 0.22) * it.scale;
+      const ar = img.width / img.height;
+      const dh = baseH, dw = baseH * ar;
+      const cx = it.xFrac * W;
+      const baseY = floorY + 8;
+      // Ground shadow (cheap radial gradient ellipse)
+      bx.save();
+      bx.translate(cx, baseY);
+      const shadowR = dw * 0.55;
+      const shg = bx.createRadialGradient(0, 0, 0, 0, 0, shadowR);
+      shg.addColorStop(0, 'rgba(0,0,0,0.45)');
+      shg.addColorStop(1, 'rgba(0,0,0,0)');
+      bx.fillStyle = shg;
+      bx.scale(1, 0.35);
+      bx.beginPath(); bx.arc(0, 0, shadowR, 0, Math.PI * 2); bx.fill();
+      bx.restore();
+      // Decor itself
+      bx.save();
+      bx.translate(cx, baseY);
+      if (it.flip) bx.scale(-1, 1);
+      bx.drawImage(img, -dw/2, -dh, dw, dh);
+      bx.restore();
+    }
+
+    // 4) Vignette
+    const vg = bx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.4, W/2, H/2, Math.max(W,H)*0.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    bx.fillStyle = vg; bx.fillRect(0, 0, W, H);
+  }
+
+  function drawBg() {
+    if (!bgCanvas || bgCanvas.width !== W || bgCanvas.height !== H) buildStaticBg();
+    ctx.drawImage(bgCanvas, 0, 0);
+
+    // Animated caustic light shimmer — only 4 blobs (was 6) and lighter blend
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const phase = animT * 0.011 + i * 1.7;
-      const y = 40 + i * 14 + Math.sin(phase) * 8;
-      const r = 90 + Math.sin(phase * 1.3) * 20;
-      const x = ((animT * 0.35 + i * 220) % (W + 300)) - 150;
+      const y = 40 + i * 18 + Math.sin(phase) * 8;
+      const r = 100 + Math.sin(phase * 1.3) * 20;
+      const x = ((animT * 0.35 + i * 280) % (W + 300)) - 150;
       const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
-      grd.addColorStop(0, 'rgba(180, 230, 255, 0.22)');
-      grd.addColorStop(0.6, 'rgba(120, 200, 255, 0.06)');
+      grd.addColorStop(0, 'rgba(180, 230, 255, 0.18)');
       grd.addColorStop(1, 'rgba(120, 200, 255, 0)');
       ctx.fillStyle = grd;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
 
-    // 3) Sandy/silty floor strip
-    const floorY = H - 56;
-    const sandGrad = ctx.createLinearGradient(0, floorY, 0, H);
-    sandGrad.addColorStop(0, 'rgba(240, 210, 150, 0.0)');
-    sandGrad.addColorStop(0.3, 'rgba(180, 150, 100, 0.55)');
-    sandGrad.addColorStop(1, 'rgba(120, 90, 55, 0.85)');
-    ctx.fillStyle = sandGrad;
-    ctx.fillRect(0, floorY, W, 56);
-    // sand bumps
-    ctx.fillStyle = 'rgba(220, 185, 130, 0.35)';
-    for (let i = 0; i < W; i += 8) {
-      const h = 4 + Math.sin(i * 0.07) * 2 + Math.cos(i * 0.13 + 1) * 1.5;
-      ctx.fillRect(i, floorY + 2 - h, 8, h);
-    }
-    // sand specks
-    ctx.fillStyle = 'rgba(255, 240, 200, 0.5)';
-    for (let i = 0; i < 60; i++) {
-      const x = (i * 53 + 7) % W;
-      const y = floorY + 8 + (i * 17 % 40);
-      ctx.fillRect(x, y, 1.5, 1.5);
-    }
-
-    // 4) Painted decorations anchored to the floor
-    if (!_decorLayout) _decorLayout = buildDecorLayout();
-    for (const it of _decorLayout) {
-      const key = 'decor_' + it.which;
-      if (!ok(key)) continue;
-      const img = A[key];
-      // Target height scaled to canvas
-      const baseH = Math.min(160, H * 0.22) * it.scale;
-      const ar = img.width / img.height;
-      const dh = baseH;
-      const dw = baseH * ar;
-      const cx = it.xFrac * W;
-      const baseY = floorY + 8; // bottom of decor sits in the sand
-      ctx.save();
-      ctx.translate(cx, baseY);
-      if (it.flip) ctx.scale(-1, 1);
-      // Slight back-of-tank dim + vertical shadow
-      ctx.shadowColor = 'rgba(0, 10, 30, 0.6)';
-      ctx.shadowBlur = 12;
-      ctx.shadowOffsetY = 2;
-      ctx.drawImage(img, -dw/2, -dh, dw, dh);
-      ctx.restore();
-    }
-    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-
-    // 5) Bubbles drifting up
-    for (let i = 0; i < 22; i++) {
+    // Bubbles — fewer (12 instead of 22) and skip the highlight stroke
+    ctx.fillStyle = 'rgba(180, 220, 255, 0.22)';
+    for (let i = 0; i < 12; i++) {
       const t = animT * 0.3 + i * 23;
       const x = (i * 137 + Math.sin(t * 0.013) * 40) % W;
       const y = ((H + 60) - (t * 0.6 + i * 50) % (H + 80));
       const r = 3 + (i % 4);
-      ctx.fillStyle = 'rgba(180, 220, 255, 0.22)';
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)'; ctx.lineWidth = 0.6;
-      ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
     }
-
-    // 6) Glass tank vignette — slight darker edges
-    const vg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.4, W/2, H/2, Math.max(W,H)*0.7);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   }
 
   function drawFood(f) {
@@ -800,8 +816,10 @@
       const targetH = sz * 1.2;
       const ar = sw / sh;
       const targetW = targetH * ar;
-      ctx.shadowColor = sp.color; ctx.shadowBlur = glow;
       ctx.save();
+      // Glow only for rare species or elders (shadowBlur is expensive at 60fps)
+      const wantGlow = b.stage === STAGE_NAMES.length - 1 || sp.animated || sp.sellMul >= 2.8;
+      if (wantGlow) { ctx.shadowColor = sp.color; ctx.shadowBlur = glow; }
       // Animated species get a hue cycle on top of the painted sprite
       if (sp.animated === 'rainbow') ctx.filter = `hue-rotate(${(animT * 2.5) % 360}deg) saturate(1.4)`;
       else if (sp.animated === 'aurora') ctx.filter = `hue-rotate(${Math.sin(animT * 0.03) * 60}deg) saturate(1.2) brightness(1.05)`;
@@ -810,7 +828,6 @@
       if (b.facing < 0) ctx.scale(-1, 1);
       ctx.drawImage(img, 0, 0, sw, sh, -targetW/2, -targetH/2, targetW, targetH);
       ctx.restore();
-      ctx.shadowBlur = 0;
       // hungry tint: dim with overlay
       if (b.hunger < 30) {
         ctx.fillStyle = `rgba(20, 10, 30, ${(30 - b.hunger) / 40})`;
