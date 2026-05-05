@@ -89,18 +89,49 @@
   @keyframes twinkleA { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
   @keyframes twinkleB { 0%, 100% { opacity: .9; } 50% { opacity: .35; } }
 
-  /* TREE / RUIN SILHOUETTES — three SVG layers, slow horizontal drift */
-  .bg-far svg, .bg-mid svg, .bg-near svg {
-    position: absolute; bottom: 0; left: 0;
-    width: 200%; height: 100%;
-    display: block;
-    animation: drift 90s linear infinite;
+  /* GIANT PORTAL — painted asset as upper-center focal point */
+  .bg-portal {
+    position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -7;
+    display: flex; align-items: flex-start; justify-content: center;
   }
-  .bg-mid svg  { animation-duration: 60s; }
-  .bg-near svg { animation-duration: 38s; bottom: -4%; }
-  @keyframes drift {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
+  .bg-portal .portal-img {
+    margin-top: 2vh;
+    width: clamp(260px, 36vw, 460px);
+    filter: drop-shadow(0 0 40px rgba(255, 92, 184, 0.6)) drop-shadow(0 0 80px rgba(255, 92, 184, 0.35));
+    animation: portalPulse 6s ease-in-out infinite, portalRotate 80s linear infinite;
+  }
+  @keyframes portalPulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 40px rgba(255, 92, 184, 0.6)) drop-shadow(0 0 80px rgba(255, 92, 184, 0.35)); }
+    50%      { transform: scale(1.04); filter: drop-shadow(0 0 60px rgba(255, 92, 184, 0.85)) drop-shadow(0 0 120px rgba(255, 92, 184, 0.5)); }
+  }
+  @keyframes portalRotate {
+    /* The portal sprite has a swirl, but a slow CSS rotation reads weird with the stone arch.
+       So we just gently pulse — keep a tiny tilt for life. */
+    from { transform-origin: 50% 50%; }
+    to   { transform-origin: 50% 50%; }
+  }
+
+  /* PAINTED FOREST — trees, bushes, rocks placed across the foreground */
+  .bg-forest { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -5; }
+  .bg-forest .prop {
+    position: absolute;
+    bottom: 0;
+    transform-origin: bottom center;
+    image-rendering: auto;
+    will-change: transform;
+  }
+  .bg-forest .prop.tree    { width: clamp(80px, 10vw, 130px); }
+  .bg-forest .prop.bush    { width: clamp(60px, 7vw, 100px);  }
+  .bg-forest .prop.rock    { width: clamp(40px, 5vw, 70px);   }
+  .bg-forest .prop.far     { opacity: 0.55; filter: brightness(0.75) blur(0.5px); transform: translateY(0); }
+  .bg-forest .prop.mid     { opacity: 0.8;  filter: brightness(0.85); }
+  .bg-forest .prop.near    { opacity: 1.0;  filter: brightness(1.0)  drop-shadow(0 6px 8px rgba(0,0,0,0.6)); }
+  .bg-forest .prop.sway {
+    animation: sway 6s ease-in-out infinite;
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-1.5deg); }
+    50%      { transform: rotate(1.5deg);  }
   }
 
   /* MIST: soft white-blue gradient at the bottom that drifts slowly */
@@ -115,7 +146,7 @@
       radial-gradient(60% 100% at 80% 100%, rgba(156, 214, 255, 0.10) 0%, rgba(156, 214, 255, 0) 70%);
   }
 
-  /* SPIRITS — small glowing dots that drift up like fireflies / Bloo souls */
+  /* FIREFLIES — small glowing dots, the original ambient particles */
   .bg-spirits .spirit {
     position: absolute;
     width: 6px; height: 6px;
@@ -134,6 +165,26 @@
     50%  { transform: translateY(-50vh) translateX(20px); }
     90%  { opacity: .5; }
     to   { transform: translateY(-110vh) translateX(-20px); opacity: 0; }
+  }
+  /* BLOO CHARACTERS — painted blue spirit drifting in the background */
+  .bg-bloos { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: -3; }
+  .bg-bloos .bloo {
+    position: absolute;
+    width: clamp(50px, 5vw, 80px);
+    filter: drop-shadow(0 0 14px rgba(156, 214, 255, 0.45));
+    animation: blooFloat 16s ease-in-out infinite, blooBob 3.5s ease-in-out infinite;
+    will-change: transform;
+  }
+  @keyframes blooFloat {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    10%  { opacity: 0.7; }
+    50%  { transform: translate(40px, -120px); }
+    90%  { opacity: 0.5; }
+    100% { transform: translate(-30px, -220px); opacity: 0; }
+  }
+  @keyframes blooBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
   }
 
   /* =========================
@@ -240,8 +291,19 @@
     <div class="moon"></div>
   </div>
 
-  <!-- Far ruin/tree silhouette -->
-  <div class="bg-layer bg-far">
+  <!-- Giant glowing painted portal centered above -->
+  <div class="bg-portal">
+    <img class="portal-img" src="sprites/td/tiles/tile_portal.png" alt="" aria-hidden="true" />
+  </div>
+
+  <!-- Painted forest props (trees, bushes, rocks) — multiple parallax depths -->
+  <div class="bg-forest" id="forest"></div>
+
+  <!-- Drifting Bloo characters -->
+  <div class="bg-bloos" id="bloos"></div>
+
+  <!-- (legacy SVG silhouette layers kept below, now hidden by the painted assets above) -->
+  <div class="bg-layer bg-far" style="display:none">
     <svg viewBox="0 0 2000 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
       <g fill="#1a0f30">
         <!-- distant arches / ruins -->
@@ -271,8 +333,8 @@
     </svg>
   </div>
 
-  <!-- Mid trees -->
-  <div class="bg-layer bg-mid">
+  <!-- Mid trees (legacy, hidden) -->
+  <div class="bg-layer bg-mid" style="display:none">
     <svg viewBox="0 0 2000 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
       <g fill="#0e0820">
         <!-- repeated tree clumps -->
@@ -342,8 +404,8 @@
     </svg>
   </div>
 
-  <!-- Near foreground bushes / grass -->
-  <div class="bg-layer bg-near">
+  <!-- Near foreground bushes (legacy, hidden) -->
+  <div class="bg-layer bg-near" style="display:none">
     <svg viewBox="0 0 2000 400" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMax slice">
       <g fill="#070414">
         <ellipse cx="60" cy="380" rx="120" ry="40"/>
@@ -544,10 +606,9 @@
   </div>
 
   <script>
-    // Spawn drifting spirit lights
+    // Drifting firefly dots (small ambient particles)
     const sp = document.getElementById('spirits');
-    const N = 18;
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < 18; i++) {
       const d = document.createElement('div');
       d.className = 'spirit' + (Math.random() < 0.4 ? ' cyan' : '') + (Math.random() < 0.4 ? ' small' : '');
       d.style.left = (Math.random() * 100) + 'vw';
@@ -555,6 +616,55 @@
       d.style.animationDuration = (10 + Math.random() * 10) + 's';
       d.style.opacity = (0.5 + Math.random() * 0.4).toFixed(2);
       sp.appendChild(d);
+    }
+
+    // Painted forest props scattered along the bottom in 3 depth layers
+    const forest = document.getElementById('forest');
+    function addProp(kind, layer, leftPct, srcPath) {
+      const img = document.createElement('img');
+      img.className = 'prop ' + kind + ' ' + layer + (Math.random() < 0.4 ? ' sway' : '');
+      img.src = srcPath;
+      img.alt = ''; img.setAttribute('aria-hidden', 'true');
+      img.style.left = leftPct + 'vw';
+      img.style.bottom = (-2 - Math.random() * 6) + 'px';
+      img.style.animationDelay = (Math.random() * 6) + 's';
+      img.style.animationDuration = (4 + Math.random() * 4) + 's';
+      forest.appendChild(img);
+    }
+    const TREE = 'sprites/td/tiles/tile_tree.png';
+    const BUSH = 'sprites/td/tiles/tile_bush.png';
+    const ROCK = 'sprites/td/tiles/tile_rock.png';
+    function pickAsset(r) { if (r < 0.5) return TREE; if (r < 0.82) return BUSH; return ROCK; }
+    function pickClass(r) { if (r < 0.5) return 'tree'; if (r < 0.82) return 'bush'; return 'rock'; }
+    // Far layer — small + dim
+    for (let x = 0; x < 100; x += 8) {
+      const r = Math.random();
+      addProp(pickClass(r), 'far', x + (Math.random() - 0.5) * 4, pickAsset(r));
+    }
+    // Mid layer
+    for (let x = 4; x < 100; x += 12) {
+      const r = Math.random();
+      addProp(pickClass(r), 'mid', x + (Math.random() - 0.5) * 5, pickAsset(r));
+    }
+    // Near layer — biggest, fewer
+    for (let x = 6; x < 100; x += 18) {
+      const r = Math.random();
+      addProp(pickClass(r), 'near', x + (Math.random() - 0.5) * 7, pickAsset(r));
+    }
+
+    // Drifting Bloo characters in the background
+    const bloos = document.getElementById('bloos');
+    for (let i = 0; i < 5; i++) {
+      const b = document.createElement('img');
+      b.className = 'bloo';
+      b.src = 'sprites/td/hero/blue_spirit.png';
+      b.alt = ''; b.setAttribute('aria-hidden', 'true');
+      b.style.left = (8 + Math.random() * 84) + 'vw';
+      b.style.bottom = (15 + Math.random() * 55) + 'vh';
+      b.style.animationDelay = (Math.random() * 16) + 's, ' + (Math.random() * 3.5) + 's';
+      b.style.animationDuration = (14 + Math.random() * 8) + 's, ' + (3 + Math.random() * 1.5) + 's';
+      if (Math.random() < 0.5) b.style.transform = 'scaleX(-1)';
+      bloos.appendChild(b);
     }
   </script>
 </body>
