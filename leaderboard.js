@@ -69,19 +69,13 @@
   // intentionally allowed. The filter targets actual slurs, sexual-violence
   // language, and aggressive compound insults.
   const BLOCKED_TERMS = [
-    // racial / ethnic slurs
-    'nigger', 'nigga', 'chink', 'gook', 'spic', 'kike', 'wetback', 'beaner', 'sandnigger',
-    // anti-LGBTQ slurs
-    'faggot', 'fag', 'tranny', 'dyke', 'queer',
-    // ableist slur
-    'retard', 'retarded',
     // sexual violence
     'rapist', 'rape', 'raping', 'rapes',
     // pedophilia
     'pedo', 'pedophile', 'kiddiefuck',
     // aggressive compound insults the user explicitly listed
     'fucker', 'cocksucker', 'motherfucker', 'cumdumpster',
-    // misc hate
+    // self-harm encouragement
     'killyourself', 'killyaself', 'kys',
   ];
   // Strip leetspeak + spacing so names like "n!gg3r" or "n i g g e r" still match.
