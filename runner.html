@@ -225,6 +225,8 @@
     if (idx < 0 || idx >= clones.length) return;
     clones.splice(idx, 1);
     Audio.cloneLost();
+    // Game over the moment the last clone falls, regardless of cause
+    if (clones.length === 0 && !gameOver) endGame();
   }
 
   // Bullets (player fires manually now)
