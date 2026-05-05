@@ -287,6 +287,8 @@
   let waveTimer = 0;
   let spawnQueue = [];
   let gameOver = false;
+  let bestWave = 0;
+  try { bestWave = parseInt(localStorage.getItem('bloo.td.bestWave') || '0', 10); } catch(_) {}
   let selectedType = 'blaster';
   let hover = null;
   let particles = [];
@@ -321,39 +323,65 @@
   const towers = [];
   const enemies = [];
 
-  // 8 waves of escalating difficulty
-  const WAVES = [
-    { spawns: [['basic', 6]] },
-    { spawns: [['basic', 8], ['fast', 4]] },
-    { spawns: [['fast', 8], ['shielded', 3]] },
-    { spawns: [['basic', 6], ['tank', 3]] },
-    { spawns: [['fast', 6], ['shielded', 4], ['healer', 2]] },
-    { spawns: [['healer', 3], ['fast', 8], ['summoner', 2]] },
-    { spawns: [['summoner', 3], ['shielded', 5], ['tank', 3], ['flying', 5]] },
-    { spawns: [['fast', 6], ['shielded', 4], ['summoner', 3], ['flying', 4], ['boss', 1]] },
-  ];
+  // ----- Endless wave generator -----
+  // Each wave returns a list of [type, count] spawn entries plus an HP scalar
+  // applied to every enemy spawned. As the wave number grows the mix shifts
+  // toward harder types and the HP / counts climb.
+  function generateWave(idx) {
+    // idx is 0-based wave number
+    const n = idx + 1;
+    const spawns = [];
+    // Always at least some basic enemies, scaling up
+    spawns.push(['basic', 4 + Math.floor(n * 1.2)]);
+    if (n >= 2) spawns.push(['fast', Math.min(20, 2 + Math.floor(n * 0.9))]);
+    if (n >= 3) spawns.push(['shielded', Math.min(12, Math.floor(n * 0.6))]);
+    if (n >= 4) spawns.push(['tank', Math.min(8, Math.floor(n * 0.3))]);
+    if (n >= 5) spawns.push(['healer', Math.min(5, Math.floor(n / 4))]);
+    if (n >= 6) spawns.push(['flying', Math.min(10, Math.floor((n - 5) * 0.8))]);
+    if (n >= 7) spawns.push(['summoner', Math.min(6, Math.floor((n - 6) * 0.6))]);
+    // Boss every 5 waves (5, 10, 15, ...). After wave 10 add multiple bosses.
+    let bossCount = 0;
+    if (n % 5 === 0) bossCount = 1 + Math.floor((n - 5) / 10);
+    if (bossCount) spawns.push(['boss', bossCount]);
+    // Per-enemy HP multiplier — climbs with wave number
+    const hpMul = 1 + Math.max(0, n - 1) * 0.18;
+    // Spacing between spawns shortens as the game goes on
+    const spacing = Math.max(8, 24 - Math.floor(n * 0.4));
+    return { spawns, hpMul, spacing };
+  }
 
   function startWave() {
-    if (waveActive || waveIdx >= WAVES.length || gameOver) return;
+    if (waveActive || gameOver) return;
     Audio.waveStart();
-    const w = WAVES[waveIdx];
+    const w = generateWave(waveIdx);
     spawnQueue = [];
     let delay = 30;
     for (const [type, count] of w.spawns) {
-      for (let i = 0; i < count; i++) { spawnQueue.push({ type, delay }); delay += 22; }
+      for (let i = 0; i < count; i++) { spawnQueue.push({ type, delay, hpMul: w.hpMul }); delay += w.spacing; }
     }
+    // Shuffle so types are interleaved instead of all-of-one-then-all-of-another
+    for (let i = spawnQueue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [spawnQueue[i], spawnQueue[j]] = [spawnQueue[j], spawnQueue[i]];
+    }
+    // Re-sort so original delays are kept but types are mixed
+    let t = 30;
+    for (const s of spawnQueue) { s.delay = t; t += w.spacing; }
     waveActive = true;
     waveTimer = 0;
   }
 
-  function spawnEnemy(type) {
+  function spawnEnemy(type, hpMul) {
     const def = ENEMY_TYPES[type];
     if (!def) return;
     const center = tileCenter(SPAWN.c, SPAWN.r);
+    const mul = hpMul || 1;
+    const hp = Math.ceil(def.hp * mul);
     enemies.push({
       x: center.x, y: center.y - 6,
-      type, hp: def.hp, hpMax: def.hp,
-      speed: def.speed, slowT: 0,
+      type, hp, hpMax: hp,
+      speed: def.speed * (1 + Math.min(0.5, waveIdx * 0.015)),  // slight speed scaling
+      slowT: 0,
       pathIdx: 1,
       isBoss: !!def.isBoss,
       armor: def.armor || 0,
@@ -434,11 +462,13 @@
     }
     return out;
   }
-  function startBtnRect() { return { x: W - 130, y: 22, w: 120, h: 60 }; }
+  // Start button rect is computed inside drawHUD and cached for the next click frame.
+  function startBtnRect() {
+    return startBtnRect.cached || { x: W - 168, y: 18, w: 156, h: 52 };
+  }
 
   function handleClick(x, y) {
     if (gameOver) { restart(); return; }
-    // Start wave button
     const sb = startBtnRect();
     if (!waveActive && x >= sb.x && x <= sb.x + sb.w && y >= sb.y && y <= sb.y + sb.h) { startWave(); return; }
     // Palette
@@ -499,12 +529,15 @@
 
     if (waveActive) {
       waveTimer++;
-      while (spawnQueue.length && spawnQueue[0].delay <= waveTimer) spawnEnemy(spawnQueue.shift().type);
+      while (spawnQueue.length && spawnQueue[0].delay <= waveTimer) {
+        const s = spawnQueue.shift();
+        spawnEnemy(s.type, s.hpMul);
+      }
       if (spawnQueue.length === 0 && enemies.length === 0) {
         waveActive = false;
         waveIdx++;
-        gold += 40;
-        if (waveIdx >= WAVES.length) { gameOver = 'win'; Audio.win(); }
+        // End-of-wave bonus scales with wave number
+        gold += 30 + waveIdx * 8;
       }
     }
 
@@ -545,7 +578,13 @@
           lives -= e.isBoss ? 5 : 1;
           Audio.reachGoal();
           e.dead = true;
-          if (lives <= 0) { gameOver = 'lose'; Audio.lose(); }
+          if (lives <= 0) {
+            gameOver = 'lose'; Audio.lose();
+            if (waveIdx > bestWave) {
+              bestWave = waveIdx;
+              try { localStorage.setItem('bloo.td.bestWave', String(bestWave)); } catch(_) {}
+            }
+          }
         }
       } else {
         e.x += sp * dx / d;
@@ -930,50 +969,62 @@
   }
 
   function drawHUD() {
-    // Top HUD bar
-    ctx.fillStyle = 'rgba(10, 5, 25, 0.7)';
-    roundRect(14, 14, W - 28, 84, 12); ctx.fill();
+    // Top HUD bar — single row, evenly spaced columns
+    const barX = 12, barY = 12, barW = W - 24, barH = 64;
+    ctx.fillStyle = 'rgba(10, 5, 25, 0.78)';
+    roundRect(barX, barY, barW, barH, 12); ctx.fill();
     ctx.strokeStyle = 'rgba(255, 92, 184, 0.4)'; ctx.lineWidth = 1.2; ctx.stroke();
 
-    // Currency orb + gold
-    if (ok('u_orb')) { ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 8; ctx.drawImage(ASSETS.u_orb, 22, 22, 32, 32); ctx.shadowBlur = 0; }
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(gold), 60, 38);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('GOLD', 60, 60);
+    // The bar is split into 3 stat cells on the left + start button on the right.
+    // Start button takes ~40% of width on the right, stats share the remaining 60%.
+    const sbW = Math.min(160, barW * 0.42);
+    const sbX = barX + barW - sbW - 8;
+    const statsX = barX + 8;
+    const statsW = sbX - statsX - 8;
+    const cellW = statsW / 3;
 
-    // Heart + lives
-    if (ok('u_heart')) { ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 8; ctx.drawImage(ASSETS.u_heart, 150, 22, 32, 30); ctx.shadowBlur = 0; }
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui';
-    ctx.fillText(String(lives), 188, 38);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('LIVES', 188, 60);
+    function drawStat(idx, iconKey, value, label, glowColor) {
+      const cx = statsX + idx * cellW;
+      // icon on left, value to its right, label under value
+      const iconSize = 28;
+      const iy = barY + (barH - iconSize) / 2;
+      if (ok(iconKey)) {
+        ctx.shadowColor = glowColor; ctx.shadowBlur = 8;
+        ctx.drawImage(ASSETS[iconKey], cx + 6, iy, iconSize, iconSize);
+        ctx.shadowBlur = 0;
+      }
+      const tx = cx + 6 + iconSize + 6;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 19px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(value, tx, barY + 32);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 9px system-ui'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(label, tx, barY + 48);
+    }
 
-    // Wave icon + counter
-    if (ok('u_wave')) { ctx.shadowColor = '#c46cff'; ctx.shadowBlur = 6; ctx.drawImage(ASSETS.u_wave, W/2 - 60, 22, 30, 28); ctx.shadowBlur = 0; }
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText('WAVE', W/2 - 22, 32);
-    ctx.font = 'bold 18px system-ui';
-    ctx.fillText((Math.min(waveIdx + 1, WAVES.length)) + ' / ' + WAVES.length, W/2 - 22, 54);
+    drawStat(0, 'u_orb',   String(gold),       'GOLD',  '#9cd6ff');
+    drawStat(1, 'u_heart', String(lives),      'LIVES', '#ff5c8a');
+    drawStat(2, 'u_wave',  'W' + (waveIdx + 1),'WAVE',  '#c46cff');
 
-    // Start wave button
-    const sb = startBtnRect();
-    if (!waveActive && waveIdx < WAVES.length && !gameOver) {
+    // Start wave button — now lives in the right portion of the bar
+    const sb = { x: sbX, y: barY + 6, w: sbW, h: barH - 12 };
+    startBtnRect.cached = sb;
+    if (!waveActive && !gameOver) {
       ctx.fillStyle = 'rgba(95, 232, 122, 0.22)';
-      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.fill();
-      ctx.strokeStyle = '#5fe87a'; ctx.lineWidth = 2; ctx.shadowColor = '#5fe87a'; ctx.shadowBlur = 12;
-      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.stroke();
+      roundRect(sb.x, sb.y, sb.w, sb.h, 10); ctx.fill();
+      ctx.strokeStyle = '#5fe87a'; ctx.lineWidth = 2; ctx.shadowColor = '#5fe87a'; ctx.shadowBlur = 10;
+      roundRect(sb.x, sb.y, sb.w, sb.h, 10); ctx.stroke();
       ctx.shadowBlur = 0;
-      // Painted play icon
-      if (ok('u_play')) ctx.drawImage(ASSETS.u_play, sb.x + sb.w/2 - 14, sb.y + 8, 28, 26);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('START WAVE ' + (waveIdx + 1), sb.x + sb.w/2, sb.y + sb.h - 14);
+      if (ok('u_play')) ctx.drawImage(ASSETS.u_play, sb.x + 10, sb.y + sb.h/2 - 13, 26, 26);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('START', sb.x + sb.w/2 + 14, sb.y + sb.h/2 - 6);
+      ctx.font = 'bold 14px system-ui';
+      ctx.fillText('WAVE ' + (waveIdx + 1), sb.x + sb.w/2 + 14, sb.y + sb.h/2 + 10);
     } else if (waveActive) {
       ctx.fillStyle = 'rgba(255, 92, 184, 0.20)';
-      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.fill();
-      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2; roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('WAVE IN PROGRESS', sb.x + sb.w/2, sb.y + sb.h/2 + 4);
+      roundRect(sb.x, sb.y, sb.w, sb.h, 10); ctx.fill();
+      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2; roundRect(sb.x, sb.y, sb.w, sb.h, 10); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('WAVE IN', sb.x + sb.w/2, sb.y + sb.h/2 - 8);
+      ctx.fillText('PROGRESS', sb.x + sb.w/2, sb.y + sb.h/2 + 7);
     }
 
     drawPalette();
@@ -1026,18 +1077,22 @@
 
   function drawGameOver() {
     if (!gameOver) return;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.80)';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = gameOver === 'win' ? '#5fe87a' : '#ff5c8a';
-    ctx.shadowColor = gameOver === 'win' ? '#5fe87a' : '#ff5c8a'; ctx.shadowBlur = 24;
+    ctx.fillStyle = '#ff5c8a';
+    ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 24;
     ctx.font = 'bold 48px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(gameOver === 'win' ? 'VICTORY!' : 'BASE LOST', W/2, H * 0.42);
+    ctx.fillText('BASE LOST', W/2, H * 0.40);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; ctx.font = '16px system-ui';
-    if (gameOver === 'win') ctx.fillText('You defended the portal through ' + WAVES.length + ' waves!', W/2, H * 0.50);
-    else ctx.fillText('You held until wave ' + (waveIdx + 1) + ' / ' + WAVES.length, W/2, H * 0.50);
+    // Score line — wave survived (best persisted in localStorage)
+    ctx.fillStyle = '#ffd54a'; ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 14;
+    ctx.font = 'bold 56px system-ui';
+    ctx.fillText('WAVE ' + waveIdx, W/2, H * 0.50);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; ctx.font = 'bold 14px system-ui';
+    ctx.fillText('survived  ·  best ' + bestWave, W/2, H * 0.55);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui';
-    ctx.fillText('TAP / CLICK TO PLAY AGAIN', W/2, H * 0.58);
+    ctx.fillText('TAP / CLICK TO PLAY AGAIN', W/2, H * 0.62);
   }
 
   function roundRect(x, y, w, h, r) {
