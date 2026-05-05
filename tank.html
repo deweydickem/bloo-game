@@ -9,44 +9,137 @@
   html, body { margin:0; padding:0; background:#0a0716; color:#fff; font-family: system-ui, -apple-system, sans-serif; height:100%; overflow:hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
   #wrap { position:fixed; inset:0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
-  #btn-back, #btn-mute, #btn-reset {
-    position: fixed; top: max(14px, env(safe-area-inset-top));
-    padding: 6px 12px; border-radius: 999px;
-    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+  .btn {
+    position: fixed; padding: 6px 12px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.6); border: 1.5px solid rgba(255, 92, 184, 0.45);
     color: #fff; font-size: 12px; letter-spacing: .5px; font-weight: 600;
     text-decoration: none; cursor: pointer; z-index: 11;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    font-family: inherit;
   }
-  #btn-back  { left: max(14px, env(safe-area-inset-left)); }
-  #btn-mute  { right: max(14px, env(safe-area-inset-right)); width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 18px; display:flex; align-items:center; justify-content:center; }
-  #btn-reset { right: calc(max(14px, env(safe-area-inset-right)) + 48px); }
-  #hud {
-    position: fixed; top: max(64px, calc(env(safe-area-inset-top) + 56px));
-    left: max(14px, env(safe-area-inset-left));
-    padding: 8px 14px; border-radius: 999px;
-    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    color: #fff; font-size: 12px; letter-spacing: .5px;
-    z-index: 10;
+  .btn:hover { border-color: rgba(255, 92, 184, 0.8); }
+  .btn:active { transform: scale(0.96); }
+  #btn-back  { top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); }
+  #btn-mute  { top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 18px; display:flex; align-items:center; justify-content:center; }
+  #btn-shop  { top: max(14px, env(safe-area-inset-top)); right: calc(max(14px, env(safe-area-inset-right)) + 48px); }
+  #btn-reset { top: calc(max(14px, env(safe-area-inset-top)) + 44px); right: max(14px, env(safe-area-inset-right)); font-size: 10px; padding: 4px 10px; opacity: 0.6; }
+  #btn-reset:hover { opacity: 1; }
+
+  #hud-wallet {
+    position: fixed; top: max(14px, env(safe-area-inset-top));
+    left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; align-items: center;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.6); border: 1.5px solid rgba(156, 214, 255, 0.55);
+    color: #fff; z-index: 10;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    font-weight: 700;
   }
-  #hud b { color: #ff8de0; }
+  #hud-wallet img { width: 18px; height: 18px; vertical-align: middle; filter: drop-shadow(0 0 6px rgba(156,214,255,0.8)); }
+  #hud-wallet .num { font-feature-settings: 'tnum'; font-size: 14px; }
+  #hud-pop {
+    position: fixed; top: calc(max(14px, env(safe-area-inset-top)) + 44px);
+    left: 50%; transform: translateX(-50%);
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1px solid rgba(255, 92, 184, 0.4);
+    color: rgba(255,255,255,0.75); font-size: 11px; letter-spacing: .5px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10;
+  }
+  #hud-pop b { color: #ff8de0; }
+
   #tip {
     position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
     padding: 6px 14px; border-radius: 999px;
     background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.35);
     color: rgba(255,255,255,0.75); font-size: 11px; letter-spacing: .8px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     pointer-events: none; z-index: 10;
   }
+
+  /* ---- Modals (shop + info) ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 99; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 20px; }
+  .overlay.show { display: flex; }
+  .modal {
+    background: linear-gradient(180deg, #1a0e3a 0%, #0f0820 100%);
+    border: 1.5px solid rgba(255, 92, 184, 0.55);
+    border-radius: 16px; padding: 22px 22px 18px; max-width: 460px; width: 100%;
+    color: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255, 92, 184, 0.2);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { margin: 0 0 4px; font-size: 22px;
+              background: linear-gradient(180deg, #fff 0%, #ff8de0 60%, #ff5cb8 100%);
+              -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .modal p { margin: 0 0 14px; color: rgba(255,255,255,0.65); font-size: 13px; line-height: 1.5; }
+  .modal .close { float: right; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 10px; border-radius: 999px; font-size: 11px; cursor: pointer; font-family: inherit; }
+
+  .shop-row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-bottom: 1px solid rgba(255,92,184,0.12); }
+  .shop-row:last-child { border-bottom: 0; }
+  .shop-row .swatch { width: 36px; height: 36px; border-radius: 50%; flex: 0 0 36px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.15), 0 0 16px currentColor; }
+  .shop-row .info { flex: 1; min-width: 0; }
+  .shop-row .name { font-weight: 700; font-size: 14px; }
+  .shop-row .meta { font-size: 11px; color: rgba(255,255,255,0.55); }
+  .shop-row .price { display: flex; align-items: center; gap: 6px; color: #9cd6ff; font-weight: 700; font-size: 13px; font-feature-settings: 'tnum'; }
+  .shop-row .price img { width: 14px; height: 14px; }
+  .shop-row .buy { background: linear-gradient(135deg, #5fe87a 0%, #2fb854 100%); color: #fff; border: 0; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(95, 232, 122, 0.4); font-family: inherit; flex: 0 0 auto; }
+  .shop-row .buy:disabled { background: rgba(255,255,255,0.08); box-shadow: none; cursor: not-allowed; opacity: 0.5; }
+
+  .info-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .info-row .swatch { width: 50px; height: 50px; border-radius: 50%; flex: 0 0 50px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.15), 0 0 18px currentColor; }
+  .info-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .stat-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.7); }
+  .bar { flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 999px; }
+  .info-actions { display: flex; gap: 8px; }
+  .info-actions button { flex: 1; padding: 10px; border-radius: 999px; border: 0; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .info-actions .sell { background: linear-gradient(135deg, #ff8de0 0%, #c038ff 100%); color: #fff; box-shadow: 0 4px 14px rgba(255, 92, 184, 0.4); }
+  .info-actions .feed { background: rgba(156, 214, 255, 0.18); color: #fff; border: 1px solid rgba(156, 214, 255, 0.5); }
+  .info-actions .cancel { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
-<a id="btn-back" href="index.html">‹ MENU</a>
-<button id="btn-reset" title="Reset tank">RESET</button>
-<div id="btn-mute" title="Mute (M)">🔊</div>
-<div id="hud"><b id="popCount">0</b> bloos · <b id="elderCount">0</b> elders</div>
-<div id="tip">tap anywhere to drop food</div>
+<a class="btn" id="btn-back" href="index.html">‹ MENU</a>
+<button class="btn" id="btn-shop">🛒 SHOP</button>
+<button class="btn" id="btn-mute" title="Mute (M)">🔊</button>
+<button class="btn" id="btn-reset" title="Reset tank">RESET</button>
+
+<div id="hud-wallet"><img id="walletIcon" src="sprites/td/ui/ui_currency_orb.png" alt=""><span class="num" id="crystals">0</span></div>
+<div id="hud-pop"><b id="popCount">0</b> bloos · <b id="elderCount">0</b> elders</div>
+<div id="tip">tap empty water to drop food &nbsp;·&nbsp; tap a bloo for info</div>
+
+<!-- SHOP MODAL -->
+<div class="overlay" id="shopOverlay">
+  <div class="modal">
+    <button class="close" data-close="shop">CLOSE</button>
+    <h2>🛒 Egg Shop</h2>
+    <p>Buy eggs to grow new Bloo breeds. Rarer breeds sell for more crystals once they reach adulthood.</p>
+    <div id="shopList"></div>
+  </div>
+</div>
+
+<!-- INFO MODAL (per-bloo) -->
+<div class="overlay" id="infoOverlay">
+  <div class="modal" style="max-width: 360px;">
+    <button class="close" data-close="info">CLOSE</button>
+    <h2 id="infoName">Bloo</h2>
+    <div class="info-row">
+      <div class="swatch" id="infoSwatch"></div>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;" id="infoStage">Adult</div>
+        <div style="font-size: 11px; color: rgba(255,255,255,0.55);" id="infoMeta">—</div>
+      </div>
+    </div>
+    <div class="info-stats">
+      <div class="stat-row"><span style="width:60px;">Hunger</span><div class="bar"><div id="infoHungerBar"></div></div></div>
+      <div class="stat-row"><span style="width:60px;">Growth</span><div class="bar"><div id="infoGrowthBar"></div></div></div>
+    </div>
+    <div class="info-actions">
+      <button class="cancel" data-close="info">CLOSE</button>
+      <button class="feed" id="infoFeed">FEED 🍬</button>
+      <button class="sell" id="infoSell">SELL <span id="infoSellPrice">+0</span></button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -59,10 +152,8 @@
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     const r = canvas.getBoundingClientRect();
-    W = Math.floor(r.width);
-    H = Math.floor(r.height);
-    canvas.width = W * DPR;
-    canvas.height = H * DPR;
+    W = Math.floor(r.width); H = Math.floor(r.height);
+    canvas.width = W * DPR; canvas.height = H * DPR;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   window.addEventListener('resize', resize);
@@ -89,31 +180,28 @@
   function ok(k) { return A[k] && A[k].width; }
 
   // ============================================================================
-  // AUDIO (procedural, soft)
+  // AUDIO
   // ============================================================================
   const Audio = (() => {
     let actx = null, master = null, muted = false;
     try { muted = localStorage.getItem('bloo.muted') === '1'; } catch(_) {}
     function ensure(){
-      if (typeof window === 'undefined') return null;
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
-      if (!actx) { actx = new AC(); master = actx.createGain(); master.gain.value = muted ? 0 : 0.32; master.connect(actx.destination); }
+      if (!actx) { actx = new AC(); master = actx.createGain(); master.gain.value = muted ? 0 : 0.3; master.connect(actx.destination); }
       if (actx.state === 'suspended') actx.resume();
       return actx;
     }
     addEventListener('keydown', ensure, { once: true });
     addEventListener('pointerdown', ensure, { once: true });
-    addEventListener('touchstart', ensure, { once: true });
-    function setMuted(m){ muted = m; if (master) master.gain.value = muted ? 0 : 0.32; try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_){} }
+    function setMuted(m){ muted = m; if (master) master.gain.value = muted ? 0 : 0.3; try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_){} }
     function isMuted(){ return muted; }
     function tone(f, dur, type, opts={}){
       const c = ensure(); if (!c || muted) return;
       const t = c.currentTime; const o = c.createOscillator(); const g = c.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t);
       if (opts.freqEnd) o.frequency.exponentialRampToValueAtTime(Math.max(40, opts.freqEnd), t + dur);
-      const peak = opts.gain ?? 0.10;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(opts.gain ?? 0.10, t + 0.005);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
     }
@@ -124,6 +212,10 @@
       grow()   { [523, 659, 784].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',{gain:0.10}), i*80)); },
       evolve() { [523, 659, 784, 1047, 1319].forEach((f,i)=>setTimeout(()=>tone(f,0.20,'sine',{gain:0.10}), i*90)); },
       egg()    { tone(660, 0.12, 'sine', { freqEnd: 990, gain: 0.07 }); },
+      buy()    { [659, 880].forEach((f,i)=>setTimeout(()=>tone(f,0.10,'triangle',{gain:0.10}), i*60)); },
+      sell()   { [880, 659, 523].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',{gain:0.10}), i*60)); },
+      coin()   { tone(1320, 0.06, 'sine', { gain: 0.05 }); },
+      nope()   { tone(220, 0.16, 'sawtooth', { freqEnd: 110, gain: 0.10 }); },
     };
   })();
   const muteBtn = document.getElementById('btn-mute');
@@ -133,46 +225,66 @@
   addEventListener('keydown', (e) => { if (e.code === 'KeyM') { Audio.setMuted(!Audio.isMuted()); refreshMute(); } });
 
   // ============================================================================
+  // SPECIES & STAGES
+  // ============================================================================
+  // Each species defines its hue rotation from the base blue sprite, swatch
+  // CSS color (for shop + selection rings), egg price, sell multiplier, and
+  // hatch weight (how often a wild egg from an elder rolls this species).
+  const SPECIES = {
+    common:  { name: 'Common Blue',  hue:   0, sat: 1.0, bri: 1.0, color: '#1f6fd1', eggPrice: 10,  sellMul: 1.0, weight: 60, animated: false },
+    verdant: { name: 'Verdant',      hue: 110, sat: 1.1, bri: 1.0, color: '#3fc864', eggPrice: 25,  sellMul: 1.6, weight: 22, animated: false },
+    sunset:  { name: 'Sunset',       hue: 210, sat: 1.2, bri: 1.0, color: '#ff8a3a', eggPrice: 25,  sellMul: 1.6, weight: 22, animated: false },
+    crimson: { name: 'Crimson',      hue: 170, sat: 1.4, bri: 0.95,color: '#e03060', eggPrice: 40,  sellMul: 2.2, weight: 12, animated: false },
+    shadow:  { name: 'Shadow',       hue:  35, sat: 0.4, bri: 0.55,color: '#5a2090', eggPrice: 60,  sellMul: 2.8, weight:  8, animated: false },
+    aurora:  { name: 'Aurora',       hue:  60, sat: 1.4, bri: 1.05,color: '#80e0ff', eggPrice: 100, sellMul: 4.0, weight:  4, animated: 'aurora' },
+    golden:  { name: 'Golden',       hue: 200, sat: 1.6, bri: 1.15,color: '#ffd54a', eggPrice: 200, sellMul: 6.0, weight:  2, animated: false },
+    rainbow: { name: 'Rainbow',      hue:   0, sat: 1.5, bri: 1.1, color: '#ff5cb8', eggPrice: 400, sellMul: 10.0, weight: 1, animated: 'rainbow' },
+  };
+  const SPECIES_IDS = Object.keys(SPECIES);
+  function rollWildSpecies() {
+    const total = SPECIES_IDS.reduce((s, id) => s + SPECIES[id].weight, 0);
+    let r = Math.random() * total;
+    for (const id of SPECIES_IDS) {
+      r -= SPECIES[id].weight;
+      if (r <= 0) return id;
+    }
+    return 'common';
+  }
+
+  const STAGE_NAMES = ['egg', 'baby', 'teen', 'adult', 'elder'];
+  const STAGE_FOOD  = [5, 15, 40, 100, 0];
+  const STAGE_SIZE  = [22, 36, 56, 78, 110];
+  const STAGE_GLOW  = [4, 8, 12, 18, 28];
+  // Sell value (crystals) per stage, multiplied by species sellMul
+  const STAGE_SELL  = [0, 4, 12, 30, 80];
+
+  // ============================================================================
   // STATE
   // ============================================================================
-  // Stages and the food required to advance to the next.
-  // egg → baby (5) → teen (15) → adult (40) → elder (100)
-  const STAGE_NAMES = ['egg', 'baby', 'teen', 'adult', 'elder'];
-  const STAGE_FOOD  = [5, 15, 40, 100, 0]; // 0 = max stage
-  const STAGE_SIZE  = [22, 36, 56, 78, 110]; // visual size in px
-  const STAGE_GLOW  = [4, 8, 12, 18, 28];
-  const STAGE_TINT  = [
-    { r:160, g:200, b:255 },  // egg-ish soft
-    { r:140, g:200, b:255 },  // baby
-    { r:120, g:180, b:240 },  // teen
-    { r: 90, g:160, b:235 },  // adult
-    { r: 80, g:200, b:255 },  // elder (more cyan)
-  ];
+  const STORAGE_KEY = 'bloo.tank.v2';
+  const SAVE_INTERVAL = 3000;
 
-  const STORAGE_KEY = 'bloo.tank.state';
-  const SAVE_INTERVAL = 3000; // ms
-
-  let bloos = [];   // {id, x, y, vx, vy, stage, food, bobPhase, facing, eyeBlink, mood}
-  let foods = [];   // {x, y, vy, eaten, age}
+  let bloos = [];           // {id, x, y, vx, vy, stage, food, hunger, species, bobPhase, facing, eyeBlink}
+  let foods = [];
   let particles = [];
+  let crystals = 50;        // starting wallet
   let nextBlooId = 1;
   let lastSave = 0;
   let lastEggSpawnAt = 0;
+  let lastCrystalAt = 0;
+  let selectedBlooId = null;
 
-  function spawnBloo(stage = 0, x, y) {
+  function spawnBloo(stage = 0, x, y, species) {
     const xx = x ?? (60 + Math.random() * Math.max(100, W - 120));
     const yy = y ?? (140 + Math.random() * Math.max(100, H - 280));
     bloos.push({
-      id: nextBlooId++,
-      x: xx, y: yy,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.3,
-      stage,
-      food: 0,
+      id: nextBlooId++, x: xx, y: yy,
+      vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.3,
+      stage, food: 0, hunger: 100,
+      species: species || 'common',
       bobPhase: Math.random() * Math.PI * 2,
       facing: Math.random() < 0.5 ? -1 : 1,
       eyeBlink: 0,
-      mood: 1.0,
     });
   }
 
@@ -182,88 +294,211 @@
     if (saved && Array.isArray(saved.bloos)) {
       bloos = saved.bloos.map(b => ({
         ...b,
+        species: b.species || 'common',
+        hunger: typeof b.hunger === 'number' ? b.hunger : 100,
         bobPhase: Math.random() * Math.PI * 2,
         eyeBlink: 0,
-        // re-randomize position only if absent (preserves continuity)
-        x: typeof b.x === 'number' ? b.x : 100,
-        y: typeof b.y === 'number' ? b.y : 100,
       }));
+      crystals = saved.crystals ?? 50;
       nextBlooId = saved.nextBlooId || (Math.max(0, ...bloos.map(b => b.id)) + 1);
-      lastEggSpawnAt = saved.lastEggSpawnAt || 0;
+      lastEggSpawnAt = 0; lastCrystalAt = 0;
 
-      // Time elapsed since last save → trickle of passive food + eggs
       const elapsed = Math.max(0, Date.now() - (saved.lastSaved || Date.now()));
-      const elapsedHours = elapsed / (1000 * 60 * 60);
-      // 1 passive food per Bloo per hour, distributed evenly
-      const passive = Math.floor(elapsedHours * Math.max(1, bloos.length));
-      for (let i = 0; i < passive && bloos.length; i++) {
+      const elapsedMin = elapsed / 60000;
+      // Hunger decay: -1 per ~12 minutes per Bloo (slow)
+      for (const b of bloos) b.hunger = Math.max(0, Math.round(b.hunger - elapsedMin / 12));
+      // Trickle food: 1 per Bloo per ~45 minutes (capped per Bloo)
+      const trickleFood = Math.floor(elapsedMin / 45);
+      for (let i = 0; i < trickleFood; i++) {
         const b = bloos[Math.floor(Math.random() * bloos.length)];
-        if (STAGE_FOOD[b.stage] === 0) continue;
+        if (!b || STAGE_FOOD[b.stage] === 0) continue;
+        if (b.hunger < 20) continue; // very hungry Bloos can't grow
         b.food++;
-        if (b.food >= STAGE_FOOD[b.stage]) {
-          b.food = 0;
-          if (b.stage < STAGE_NAMES.length - 1) b.stage++;
-        }
+        if (b.food >= STAGE_FOOD[b.stage]) { b.food = 0; if (b.stage < STAGE_NAMES.length-1) b.stage++; }
       }
-      // Elders may have laid up to 1 egg per ~3 hours of off-time
+      // Elders earn passive crystals: 1 per ~2 minutes per elder (off-time)
       const elders = bloos.filter(b => b.stage === STAGE_NAMES.length - 1).length;
-      const eggsToLay = Math.min(8, Math.floor(elders * elapsedHours / 3));
-      for (let i = 0; i < eggsToLay && bloos.length < 12; i++) spawnBloo(0);
+      crystals += Math.floor(elders * elapsedMin / 2);
+      // Elders may have laid eggs while away (1 per ~3 hours each)
+      const eggsLaid = Math.min(8, Math.floor(elders * elapsedMin / 180));
+      for (let i = 0; i < eggsLaid && bloos.length < 16; i++) spawnBloo(0, undefined, undefined, rollWildSpecies());
     } else {
-      // Fresh tank — start with 2 babies + 1 egg so there's something to do
-      spawnBloo(1);
-      spawnBloo(1);
-      spawnBloo(0);
+      // Fresh tank: 2 common babies + 1 common egg
+      spawnBloo(1, undefined, undefined, 'common');
+      spawnBloo(1, undefined, undefined, 'common');
+      spawnBloo(0, undefined, undefined, 'common');
     }
   }
 
   function saveState() {
     try {
       const state = {
-        bloos: bloos.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, stage: b.stage, food: b.food, facing: b.facing })),
-        nextBlooId,
-        lastEggSpawnAt,
-        lastSaved: Date.now(),
+        bloos: bloos.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, stage: b.stage, food: b.food, hunger: b.hunger, facing: b.facing, species: b.species })),
+        crystals, nextBlooId, lastSaved: Date.now(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (_) {}
   }
 
   function resetTank() {
-    if (!confirm('Reset the tank? You will lose all your Bloos.')) return;
-    bloos = [];
-    foods = [];
-    particles = [];
-    nextBlooId = 1;
-    lastEggSpawnAt = 0;
-    spawnBloo(1); spawnBloo(1); spawnBloo(0);
+    if (!confirm('Reset the tank? You will lose all your Bloos and crystals.')) return;
+    bloos = []; foods = []; particles = []; crystals = 50; nextBlooId = 1;
+    lastEggSpawnAt = 0; lastCrystalAt = 0; selectedBlooId = null;
+    spawnBloo(1, undefined, undefined, 'common');
+    spawnBloo(1, undefined, undefined, 'common');
+    spawnBloo(0, undefined, undefined, 'common');
     saveState();
+    closeAllModals();
   }
   document.getElementById('btn-reset').addEventListener('click', resetTank);
 
   // ============================================================================
-  // INPUT — tap to drop food
+  // SHOP
+  // ============================================================================
+  const shopOverlay = document.getElementById('shopOverlay');
+  const shopList    = document.getElementById('shopList');
+  function renderShop() {
+    shopList.innerHTML = '';
+    for (const id of SPECIES_IDS) {
+      const sp = SPECIES[id];
+      const row = document.createElement('div');
+      row.className = 'shop-row';
+      row.innerHTML = `
+        <div class="swatch" style="background:${sp.color}; color:${sp.color};"></div>
+        <div class="info">
+          <div class="name">${sp.name}</div>
+          <div class="meta">Adult sells: ~${Math.round(STAGE_SELL[3]*sp.sellMul)} · Elder sells: ~${Math.round(STAGE_SELL[4]*sp.sellMul)}</div>
+        </div>
+        <div class="price"><img src="sprites/td/ui/ui_currency_orb.png">${sp.eggPrice}</div>
+        <button class="buy" data-buy="${id}" ${crystals >= sp.eggPrice && bloos.length < 16 ? '' : 'disabled'}>BUY</button>
+      `;
+      shopList.appendChild(row);
+    }
+    shopList.querySelectorAll('button[data-buy]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.buy;
+        const sp = SPECIES[id];
+        if (crystals < sp.eggPrice) { Audio.nope(); return; }
+        if (bloos.length >= 16) { alert('Tank is full (16 Bloos max). Sell some first.'); return; }
+        crystals -= sp.eggPrice;
+        spawnBloo(0, undefined, undefined, id);
+        Audio.buy();
+        renderShop();
+        updateHUD();
+      });
+    });
+  }
+  document.getElementById('btn-shop').addEventListener('click', () => { renderShop(); shopOverlay.classList.add('show'); });
+  document.querySelectorAll('[data-close]').forEach(el => {
+    el.addEventListener('click', () => closeAllModals());
+  });
+  function closeAllModals() {
+    shopOverlay.classList.remove('show');
+    document.getElementById('infoOverlay').classList.remove('show');
+    selectedBlooId = null;
+  }
+
+  // ============================================================================
+  // INFO PANEL (per-bloo)
+  // ============================================================================
+  const infoOverlay = document.getElementById('infoOverlay');
+  const infoName    = document.getElementById('infoName');
+  const infoStage   = document.getElementById('infoStage');
+  const infoMeta    = document.getElementById('infoMeta');
+  const infoSwatch  = document.getElementById('infoSwatch');
+  const infoHungerBar = document.getElementById('infoHungerBar');
+  const infoGrowthBar = document.getElementById('infoGrowthBar');
+  const infoSell      = document.getElementById('infoSell');
+  const infoSellPrice = document.getElementById('infoSellPrice');
+  const infoFeed      = document.getElementById('infoFeed');
+  function openInfo(blooId) {
+    const b = bloos.find(x => x.id === blooId);
+    if (!b) return;
+    selectedBlooId = blooId;
+    const sp = SPECIES[b.species];
+    infoName.textContent = sp.name + ' Bloo';
+    infoStage.textContent = STAGE_NAMES[b.stage].toUpperCase();
+    infoMeta.textContent = `Sell mult: ×${sp.sellMul} · Egg cost: ${sp.eggPrice}`;
+    infoSwatch.style.background = sp.color;
+    infoSwatch.style.color = sp.color;
+    const hungerPct = Math.max(0, Math.min(1, b.hunger / 100));
+    infoHungerBar.style.width = (hungerPct * 100) + '%';
+    infoHungerBar.style.background = hungerPct > 0.5 ? '#5fe87a' : (hungerPct > 0.25 ? '#ffd54a' : '#ff5c8a');
+    const growthPct = STAGE_FOOD[b.stage] === 0 ? 1 : (b.food / STAGE_FOOD[b.stage]);
+    infoGrowthBar.style.width = (growthPct * 100) + '%';
+    infoGrowthBar.style.background = '#ff8de0';
+    const price = Math.max(1, Math.round(STAGE_SELL[b.stage] * sp.sellMul));
+    infoSellPrice.textContent = '+' + price;
+    infoSell.dataset.price = price;
+    infoOverlay.classList.add('show');
+  }
+  infoSell.addEventListener('click', () => {
+    if (selectedBlooId == null) return;
+    const idx = bloos.findIndex(b => b.id === selectedBlooId);
+    if (idx < 0) return;
+    const b = bloos[idx];
+    const sp = SPECIES[b.species];
+    const price = Math.max(1, Math.round(STAGE_SELL[b.stage] * sp.sellMul));
+    crystals += price;
+    Audio.sell();
+    for (let i = 0; i < 14; i++) particles.push({ x: b.x, y: b.y, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, life: 30, color: '#9cd6ff' });
+    bloos.splice(idx, 1);
+    closeAllModals();
+    updateHUD();
+  });
+  infoFeed.addEventListener('click', () => {
+    if (selectedBlooId == null) return;
+    const b = bloos.find(x => x.id === selectedBlooId);
+    if (!b) return;
+    // Drop one food right above the selected Bloo
+    foods.push({ x: b.x, y: b.y - 60, vy: 0.3, eaten: false, age: 0 });
+    Audio.drop();
+    closeAllModals();
+  });
+
+  // ============================================================================
+  // INPUT
   // ============================================================================
   function clientToCanvas(e) {
     const rect = canvas.getBoundingClientRect();
     const p = e.touches ? e.touches[0] : e;
     return { x: p.clientX - rect.left, y: p.clientY - rect.top };
   }
-  function dropFoodAt(x, y) {
-    foods.push({ x, y, vy: 0.3, eaten: false, age: 0 });
-    Audio.drop();
-    // sparkle burst at the drop
-    for (let i = 0; i < 5; i++) particles.push({
-      x, y, vx: (Math.random()-0.5)*1.6, vy: (Math.random()-0.5)*1.6, life: 22, color: '#9cd6ff'
-    });
+  function findBlooAt(x, y) {
+    // Pick the topmost (smallest y → painted last) under the cursor
+    const sorted = bloos.slice().sort((a, b) => b.y - a.y);
+    for (const b of sorted) {
+      const sz = STAGE_SIZE[b.stage];
+      const dx = x - b.x, dy = y - b.y;
+      if (dx*dx + dy*dy < (sz*0.55) ** 2) return b;
+    }
+    return null;
   }
   canvas.addEventListener('pointerdown', (e) => {
     Audio.ensure();
     const p = clientToCanvas(e);
-    dropFoodAt(p.x, p.y);
+    const hit = findBlooAt(p.x, p.y);
+    if (hit) {
+      openInfo(hit.id);
+    } else {
+      // drop food
+      foods.push({ x: p.x, y: p.y, vy: 0.3, eaten: false, age: 0 });
+      Audio.drop();
+      for (let i = 0; i < 5; i++) particles.push({ x: p.x, y: p.y, vx:(Math.random()-0.5)*1.6, vy:(Math.random()-0.5)*1.6, life: 22, color: '#9cd6ff' });
+    }
     e.preventDefault();
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Click on overlay background closes modal
+  shopOverlay.addEventListener('click', (e) => { if (e.target === shopOverlay) closeAllModals(); });
+  infoOverlay.addEventListener('click', (e) => { if (e.target === infoOverlay) closeAllModals(); });
+
+  function updateHUD() {
+    document.getElementById('crystals').textContent = crystals;
+    document.getElementById('popCount').textContent = bloos.length;
+    document.getElementById('elderCount').textContent = bloos.filter(b => b.stage === STAGE_NAMES.length - 1).length;
+  }
 
   // ============================================================================
   // UPDATE
@@ -272,14 +507,15 @@
   function update() {
     animT++;
 
-    // Eggs may hatch into babies on their own after enough food
-    // (handled in the food-eating loop below)
+    // Hunger decays slowly: -1 per ~12s (so ~5 minutes from 100 → 0)
+    if (animT % 12 === 0) {
+      for (const b of bloos) if (b.hunger > 0) b.hunger = Math.max(0, b.hunger - 1);
+    }
 
     // Move and steer Bloos
     for (const b of bloos) {
-      // Find a food target — only the not-yet-fully-grown go for it
       let target = null;
-      if (STAGE_FOOD[b.stage] > 0) {
+      if (STAGE_FOOD[b.stage] > 0 && b.hunger < 90) {
         let bestD = Infinity;
         for (const f of foods) {
           if (f.eaten) continue;
@@ -288,7 +524,6 @@
           if (d < bestD) { bestD = d; target = f; }
         }
       }
-      const speedFactor = 0.05 + (b.stage === 0 ? 0.0 : 0.02 * b.stage);
       if (target) {
         const dx = target.x - b.x, dy = target.y - b.y;
         const d = Math.hypot(dx, dy) || 1;
@@ -296,25 +531,20 @@
         b.vy += (dy / d) * 0.08;
         b.facing = dx >= 0 ? 1 : -1;
       } else {
-        // gentle wander
         if (Math.random() < 0.01) { b.vx += (Math.random()-0.5) * 0.4; b.vy += (Math.random()-0.5) * 0.3; }
       }
-      // Friction (moves like underwater)
+      // Hungry Bloos move slower
+      const speedFactor = b.hunger < 20 ? 0.5 : 1;
       b.vx *= 0.94; b.vy *= 0.94;
-      // Soft floating bias upward at higher stages
       b.vy += -0.005 * b.stage;
-      // Apply
-      b.x += b.vx; b.y += b.vy;
-      // Bob
-      b.bobPhase += 0.04 + speedFactor;
-      // Bounds
+      b.x += b.vx * speedFactor; b.y += b.vy * speedFactor;
+      b.bobPhase += 0.04 + b.stage * 0.02;
       const sz = STAGE_SIZE[b.stage];
       const margin = sz * 0.55;
       if (b.x < margin) { b.x = margin; b.vx = Math.abs(b.vx); b.facing = 1; }
       if (b.x > W - margin) { b.x = W - margin; b.vx = -Math.abs(b.vx); b.facing = -1; }
       if (b.y < 90 + margin) { b.y = 90 + margin; b.vy = Math.abs(b.vy); }
       if (b.y > H - margin - 40) { b.y = H - margin - 40; b.vy = -Math.abs(b.vy); }
-      // Eye blink
       if (b.eyeBlink > 0) b.eyeBlink--;
       else if (Math.random() < 0.005) b.eyeBlink = 6;
     }
@@ -323,36 +553,31 @@
     for (const f of foods) {
       if (f.eaten) continue;
       f.age++;
-      f.vy += 0.012;
-      if (f.vy > 1.2) f.vy = 1.2;
+      f.vy += 0.012; if (f.vy > 1.2) f.vy = 1.2;
       f.y += f.vy;
       f.x += Math.sin(f.age * 0.04) * 0.15;
-      // Settle near bottom
       if (f.y > H - 24) { f.y = H - 24; f.vy *= -0.5; }
     }
 
-    // Bloo eats food
+    // Eating
     for (const f of foods) {
       if (f.eaten) continue;
       for (const b of bloos) {
-        if (STAGE_FOOD[b.stage] === 0) continue; // elder doesn't eat for growth
+        if (STAGE_FOOD[b.stage] === 0 && b.hunger >= 90) continue; // elders only eat if hungry
         const sz = STAGE_SIZE[b.stage];
         const dx = f.x - b.x, dy = f.y - b.y;
         if (dx*dx + dy*dy < (sz*0.45) ** 2) {
           f.eaten = true;
-          b.food++;
+          b.hunger = Math.min(100, b.hunger + 30);
+          if (STAGE_FOOD[b.stage] > 0) b.food++;
           Audio.eat();
-          for (let i = 0; i < 6; i++) particles.push({
-            x: f.x, y: f.y, vx: (Math.random()-0.5)*2.2, vy: (Math.random()-0.5)*2.2 - 0.4, life: 24, color: '#ffd54a'
-          });
-          if (b.food >= STAGE_FOOD[b.stage]) {
+          for (let i = 0; i < 6; i++) particles.push({ x: f.x, y: f.y, vx:(Math.random()-0.5)*2.2, vy:(Math.random()-0.5)*2.2 - 0.4, life: 24, color: '#ffd54a' });
+          if (STAGE_FOOD[b.stage] > 0 && b.food >= STAGE_FOOD[b.stage]) {
             b.food = 0;
             if (b.stage < STAGE_NAMES.length - 1) {
               b.stage++;
               Audio.grow();
-              for (let i = 0; i < 18; i++) particles.push({
-                x: b.x, y: b.y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 36, color: '#ff5cb8'
-              });
+              for (let i = 0; i < 18; i++) particles.push({ x: b.x, y: b.y, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, life: 36, color: SPECIES[b.species].color });
               if (b.stage === STAGE_NAMES.length - 1) Audio.evolve();
             }
           }
@@ -360,25 +585,30 @@
         }
       }
     }
-    // Cull eaten/old food
-    for (let i = foods.length - 1; i >= 0; i--) {
-      if (foods[i].eaten || foods[i].age > 60 * 60) foods.splice(i, 1); // 60s lifespan if uneaten
-    }
+    for (let i = foods.length - 1; i >= 0; i--) if (foods[i].eaten || foods[i].age > 60 * 60) foods.splice(i, 1);
 
-    // Elders periodically lay an egg
+    // Elder eggs (live play): 1 per elder per ~25s, faster with more elders
     const elders = bloos.filter(b => b.stage === STAGE_NAMES.length - 1);
-    if (elders.length && bloos.length < 12) {
-      // 1 egg per elder roughly every 25s
+    if (elders.length && bloos.length < 16) {
       const interval = Math.max(60 * 12, 60 * 25 / elders.length);
       if (animT - lastEggSpawnAt > interval) {
         const parent = elders[Math.floor(Math.random() * elders.length)];
-        spawnBloo(0, parent.x + (Math.random()-0.5)*40, parent.y + 20);
+        // Eggs from elders are mostly common but with a chance to inherit/randomize
+        const sp = Math.random() < 0.3 ? rollWildSpecies() : 'common';
+        spawnBloo(0, parent.x + (Math.random()-0.5)*40, parent.y + 20, sp);
         lastEggSpawnAt = animT;
         Audio.egg();
-        for (let i = 0; i < 14; i++) particles.push({
-          x: parent.x, y: parent.y + 20, vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3 - 0.3, life: 30, color: '#9cd6ff'
-        });
+        for (let i = 0; i < 14; i++) particles.push({ x: parent.x, y: parent.y + 20, vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3 - 0.3, life: 30, color: '#9cd6ff' });
       }
+    }
+
+    // Elder passive crystals: 1 per elder per ~12s of live play
+    if (elders.length && animT - lastCrystalAt > 60 * 12 / Math.max(1, elders.length)) {
+      crystals++;
+      Audio.coin();
+      lastCrystalAt = animT;
+      const e = elders[Math.floor(Math.random() * elders.length)];
+      for (let i = 0; i < 6; i++) particles.push({ x: e.x, y: e.y, vx:(Math.random()-0.5)*2, vy:-Math.random()*1.5, life: 30, color: '#9cd6ff' });
     }
 
     // Particles
@@ -388,9 +618,7 @@
     // Save periodically
     if (Date.now() - lastSave > SAVE_INTERVAL) { saveState(); lastSave = Date.now(); }
 
-    // HUD
-    document.getElementById('popCount').textContent = bloos.length;
-    document.getElementById('elderCount').textContent = elders.length;
+    if (animT % 12 === 0) updateHUD();
   }
 
   // ============================================================================
@@ -398,29 +626,21 @@
   // ============================================================================
   function drawBg() {
     if (ok('bg')) {
-      // cover-fit
       const img = A.bg;
       const ratio = Math.max(W / img.width, H / img.height);
       const dw = img.width * ratio, dh = img.height * ratio;
-      const dx = (W - dw) / 2, dy = (H - dh) / 2;
-      ctx.drawImage(img, dx, dy, dw, dh);
-    } else {
-      ctx.fillStyle = '#1a0e3a'; ctx.fillRect(0, 0, W, H);
-    }
-    // soft tank overlay (deep blue tint)
-    ctx.fillStyle = 'rgba(20, 8, 60, 0.35)';
-    ctx.fillRect(0, 0, W, H);
-    // a few drifting bubbles to sell the aquarium feel
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } else { ctx.fillStyle = '#1a0e3a'; ctx.fillRect(0, 0, W, H); }
+    ctx.fillStyle = 'rgba(20, 8, 60, 0.35)'; ctx.fillRect(0, 0, W, H);
+    // bubbles
     for (let i = 0; i < 18; i++) {
       const t = animT * 0.3 + i * 23;
       const x = (i * 137 + Math.sin(t * 0.013) * 40) % W;
       const y = ((H + 60) - (t * 0.6 + i * 50) % (H + 80));
       const r = 3 + (i % 4);
-      ctx.beginPath();
       ctx.fillStyle = 'rgba(180, 220, 255, 0.18)';
-      ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 0.6;
       ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
     }
   }
@@ -428,12 +648,8 @@
   function drawFood(f) {
     const wob = Math.sin(f.age * 0.1) * 1.5;
     ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 12;
-    if (ok('food')) {
-      ctx.drawImage(A.food, f.x - 11, f.y - 11 + wob, 22, 22);
-    } else {
-      ctx.fillStyle = '#9cd6ff';
-      ctx.beginPath(); ctx.arc(f.x, f.y + wob, 8, 0, Math.PI * 2); ctx.fill();
-    }
+    if (ok('food')) ctx.drawImage(A.food, f.x - 11, f.y - 11 + wob, 22, 22);
+    else { ctx.fillStyle = '#9cd6ff'; ctx.beginPath(); ctx.arc(f.x, f.y + wob, 8, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
   }
 
@@ -441,74 +657,89 @@
     const sz = STAGE_SIZE[b.stage];
     const bob = Math.sin(b.bobPhase) * (2 + b.stage);
     const cx = b.x, cy = b.y + bob;
-    const tint = STAGE_TINT[b.stage];
+    const sp = SPECIES[b.species];
     const glow = STAGE_GLOW[b.stage];
 
-    // Egg stage = small gem-like crystal
+    // Egg stage = small gem-like crystal (tinted)
     if (b.stage === 0) {
-      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = glow;
+      ctx.shadowColor = sp.color; ctx.shadowBlur = glow;
       if (ok('egg')) {
+        ctx.save();
+        ctx.filter = `hue-rotate(${sp.hue}deg) saturate(${sp.sat}) brightness(${sp.bri})`;
         ctx.drawImage(A.egg, cx - sz/2, cy - sz/2, sz, sz);
+        ctx.restore();
       } else {
-        ctx.fillStyle = '#9cd6ff';
+        ctx.fillStyle = sp.color;
         ctx.beginPath(); ctx.arc(cx, cy, sz/2, 0, Math.PI*2); ctx.fill();
       }
       ctx.shadowBlur = 0;
-      // hatch progress ring
       drawProgressRing(cx, cy, sz/2 + 5, b.food / STAGE_FOOD[b.stage]);
+      drawSelectionRing(b, cx, cy, sz);
       return;
     }
 
-    // Baby/Teen/Adult/Elder: painted Bloo, scaled by stage, with stage-specific glow + tint
+    // Live Bloo: hue-rotated painted sprite + glow
     if (ok('bloo')) {
       const img = A.bloo;
-      // Crop bottom 12% to remove pink ground aura that bleeds out of the source
       const sw = img.width, sh = Math.floor(img.height * 0.88);
       const targetH = sz * 1.2;
       const ar = sw / sh;
       const targetW = targetH * ar;
-      // Outer glow
-      ctx.shadowColor = `rgba(${tint.r},${tint.g},${tint.b},0.85)`;
-      ctx.shadowBlur = glow;
-      // Elder: extra pink rim
-      if (b.stage === 4) {
-        ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = glow + 6;
-      }
+      ctx.shadowColor = sp.color; ctx.shadowBlur = glow;
+      let hue = sp.hue;
+      if (sp.animated === 'rainbow') hue = (animT * 1.5) % 360;
+      else if (sp.animated === 'aurora') hue = sp.hue + Math.sin(animT * 0.04) * 30;
       ctx.save();
+      ctx.filter = `hue-rotate(${hue}deg) saturate(${sp.sat}) brightness(${sp.bri})`;
       ctx.translate(cx, cy);
       if (b.facing < 0) ctx.scale(-1, 1);
       ctx.drawImage(img, 0, 0, sw, sh, -targetW/2, -targetH/2, targetW, targetH);
       ctx.restore();
       ctx.shadowBlur = 0;
+      // hungry tint: dim with overlay
+      if (b.hunger < 30) {
+        ctx.fillStyle = `rgba(20, 10, 30, ${(30 - b.hunger) / 40})`;
+        ctx.beginPath(); ctx.arc(cx, cy, sz/2, 0, Math.PI*2); ctx.fill();
+      }
     } else {
-      // fallback circle
-      ctx.shadowColor = `rgb(${tint.r},${tint.g},${tint.b})`;
-      ctx.shadowBlur = glow;
-      ctx.fillStyle = `rgb(${tint.r},${tint.g},${tint.b})`;
+      ctx.fillStyle = sp.color;
       ctx.beginPath(); ctx.arc(cx, cy, sz/2, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
     }
-    // Growth ring (only for non-elders)
+
+    // Growth ring (skip for elders)
     if (STAGE_FOOD[b.stage] > 0) {
-      drawProgressRing(cx, cy + sz * 0.55, sz * 0.4, b.food / STAGE_FOOD[b.stage]);
-    } else {
-      // Elder: a few drifting sparkles
-      if (animT % 6 === 0) particles.push({
-        x: cx + (Math.random()-0.5)*sz, y: cy + (Math.random()-0.5)*sz*0.6,
-        vx: (Math.random()-0.5)*0.3, vy: -Math.random()*0.4 - 0.2, life: 40, color: '#ff8de0'
-      });
+      drawProgressRing(cx, cy + sz * 0.55, sz * 0.35, b.food / STAGE_FOOD[b.stage]);
     }
+    // Hunger pip — tiny red dot if hungry
+    if (b.hunger < 30) {
+      ctx.fillStyle = '#ff5c8a';
+      ctx.beginPath(); ctx.arc(cx + sz*0.4, cy - sz*0.4, 4, 0, Math.PI*2); ctx.fill();
+    }
+    // Sparkles for elder
+    if (b.stage === STAGE_NAMES.length - 1 && animT % 6 === 0) {
+      particles.push({ x: cx + (Math.random()-0.5)*sz, y: cy + (Math.random()-0.5)*sz*0.6,
+        vx: (Math.random()-0.5)*0.3, vy: -Math.random()*0.4 - 0.2, life: 40, color: sp.color });
+    }
+    drawSelectionRing(b, cx, cy, sz);
+  }
+
+  function drawSelectionRing(b, cx, cy, sz) {
+    if (selectedBlooId !== b.id) return;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.shadowColor = '#fff'; ctx.shadowBlur = 12;
+    ctx.setLineDash([6, 4]);
+    ctx.lineDashOffset = -animT * 0.5;
+    ctx.beginPath(); ctx.arc(cx, cy, sz * 0.65, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
   }
 
   function drawProgressRing(cx, cy, r, pct) {
     pct = Math.max(0, Math.min(1, pct));
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
     if (pct > 0) {
       ctx.strokeStyle = '#ff8de0';
-      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 8;
-      ctx.lineWidth = 3;
+      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 8; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * pct); ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -533,7 +764,6 @@
     }
     update();
     drawBg();
-    // Sort bloos by y so closer (bigger y) draw last (in-front feel)
     const sorted = bloos.slice().sort((a, b) => a.y - b.y);
     for (const b of sorted) drawBloo(b);
     for (const f of foods) drawFood(f);
@@ -546,7 +776,7 @@
   // ============================================================================
   resize();
   loadOrInit();
-  // Save on unload too
+  updateHUD();
   window.addEventListener('beforeunload', saveState);
   window.addEventListener('pagehide', saveState);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
