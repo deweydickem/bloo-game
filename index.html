@@ -13,16 +13,17 @@
     --cyan: #9cd6ff;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; min-height: 100%; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+  html, body { margin: 0; padding: 0; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; height: 100%; overflow: hidden; }
   body {
-    min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 36px 20px 80px;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 20px 16px;
     box-sizing: border-box;
     position: relative;
   }
 
-  /* ---- Painted background ---- */
+  /* ---- Painted background — fills the entire viewport ---- */
   .bg {
     position: fixed; inset: 0;
     background-image: url('bg.png');
@@ -31,99 +32,111 @@
     background-repeat: no-repeat;
     z-index: -2;
   }
-  /* Soft vertical vignette to keep title + cards readable on top of the painting */
+  /* Very light vignette only at the very top and very bottom — leave the middle clean */
   .bg::after {
     content: ""; position: absolute; inset: 0;
     background:
-      radial-gradient(ellipse 70% 50% at 50% 38%, rgba(10, 7, 22, 0.35) 0%, rgba(10, 7, 22, 0) 70%),
-      linear-gradient(180deg, rgba(10, 7, 22, 0.0) 0%, rgba(10, 7, 22, 0.0) 50%, rgba(10, 7, 22, 0.55) 100%);
+      linear-gradient(180deg, rgba(10, 7, 22, 0.55) 0%, rgba(10, 7, 22, 0) 18%, rgba(10, 7, 22, 0) 70%, rgba(10, 7, 22, 0.55) 100%);
+    pointer-events: none;
   }
 
   /* ---- Header ---- */
-  header { text-align: center; margin: 8px 0 26px; position: relative; z-index: 1; }
+  header { text-align: center; position: relative; z-index: 1; padding-top: 6px; }
   h1 {
-    margin: 0; font-size: clamp(40px, 7vw, 76px); font-weight: 800; letter-spacing: 1px;
+    margin: 0; font-size: clamp(34px, 6vw, 60px); font-weight: 800; letter-spacing: 1px;
     background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 40px rgba(255, 92, 184, 0.5);
     animation: titleGlow 4s ease-in-out infinite;
   }
   @keyframes titleGlow {
-    0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 92, 184, 0.4)) drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
-    50%      { filter: drop-shadow(0 0 24px rgba(255, 92, 184, 0.8)) drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+    0%, 100% { filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.5)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
+    50%      { filter: drop-shadow(0 0 26px rgba(255, 92, 184, 0.85)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
   }
   .subtitle {
-    color: #fff; margin-top: 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;
+    color: #fff; margin-top: 4px; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase;
     text-shadow: 0 0 12px rgba(255, 92, 184, 0.5), 0 2px 4px rgba(0,0,0,0.7);
     opacity: 0.85;
   }
 
-  /* ---- Cards ---- */
+  /* ---- Middle stays empty so the painting shines ---- */
+  .spacer { position: relative; z-index: 0; }
+
+  /* ---- Compact card strip at the bottom ---- */
   .grid {
-    display: grid; gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 280px));
     justify-content: center;
     position: relative; z-index: 1;
+    padding: 0 4px 6px;
+    max-width: 1100px; margin: 0 auto; width: 100%;
   }
   .card {
     position: relative;
-    border-radius: 18px;
+    border-radius: 14px;
     overflow: hidden;
-    background: rgba(20, 8, 40, 0.65);
+    background: rgba(20, 8, 40, 0.55);
     border: 1.5px solid rgba(255, 92, 184, 0.35);
-    box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 28px rgba(255, 92, 184, 0.18);
+    box-shadow: 0 10px 26px rgba(0,0,0,.55), 0 0 22px rgba(255, 92, 184, 0.18);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     text-decoration: none; color: #fff;
-    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
     cursor: pointer;
-    display: block;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
   }
   .card:hover, .card:focus {
-    transform: translateY(-6px);
-    box-shadow: 0 22px 48px rgba(0,0,0,.7), 0 0 50px rgba(255, 92, 184, 0.45);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px rgba(0,0,0,.7), 0 0 38px rgba(255, 92, 184, 0.4);
     border-color: rgba(255, 92, 184, 0.7);
     outline: none;
   }
-  .card:active { transform: translateY(-2px); }
+  .card:active { transform: translateY(-1px); }
 
-  .thumb { height: 200px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
-  .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
-  .thumb-tower  { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
-  .thumb svg { width: 100%; height: 100%; }
+  .icon {
+    width: 50px; height: 50px; flex: 0 0 50px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .icon-platformer { background: linear-gradient(135deg, #2a134a 0%, #0f0820 100%); }
+  .icon-tower      { background: linear-gradient(135deg, #2a1845 0%, #c038ff 130%); }
+  .icon-runner     { background: linear-gradient(135deg, #1a0e30 0%, #ff5cb8 160%); }
+  .icon svg { width: 100%; height: 100%; }
 
-  .body { padding: 18px 22px 22px; }
-  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .game-title { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: .3px; }
+  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .game-title { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .badge {
-    font-size: 11px; padding: 3px 10px; border-radius: 999px;
-    background: rgba(255, 92, 184, 0.18);
-    color: var(--pink-2);
+    font-size: 9px; padding: 2px 7px; border-radius: 999px; line-height: 1.4;
+    background: rgba(255, 92, 184, 0.18); color: var(--pink-2);
     border: 1px solid rgba(255, 92, 184, 0.4);
-    letter-spacing: .5px;
+    letter-spacing: .5px; flex: 0 0 auto;
   }
   .badge.new { background: rgba(156, 214, 255, 0.18); color: var(--cyan); border-color: rgba(156, 214, 255, 0.4); }
-  p.desc { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.55; margin: 8px 0 0; }
-  .play-row { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .desc { color: rgba(255,255,255,0.6); font-size: 11px; line-height: 1.35; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .play {
     background: linear-gradient(135deg, var(--pink) 0%, #c038ff 100%);
-    color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .8px;
-    padding: 10px 18px; border-radius: 999px; border: 0;
-    box-shadow: 0 6px 18px rgba(255, 92, 184, 0.45);
+    color: #fff; font-weight: 700; font-size: 11px; letter-spacing: .8px;
+    padding: 6px 12px; border-radius: 999px; flex: 0 0 auto;
+    box-shadow: 0 4px 12px rgba(255, 92, 184, 0.4);
     transition: transform .15s ease;
   }
-  .card:hover .play { transform: translateX(4px); }
-  .meta { color: rgba(255,255,255,0.4); font-size: 12px; }
+  .card:hover .play { transform: translateX(3px); }
 
   footer {
-    margin-top: 40px;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 12px; text-align: center; position: relative; z-index: 1;
+    font-size: 11px; text-align: center; position: relative; z-index: 1;
     text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    margin-top: 8px;
   }
   footer a { color: var(--pink-2); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; gap: 10px; }
+    body { padding: 14px 12px; }
+  }
 </style>
 </head>
 <body>
@@ -134,137 +147,79 @@
     <div class="subtitle">A growing collection of mini-games</div>
   </header>
 
+  <div class="spacer"></div>
+
   <div class="grid">
     <a class="card" href="game.html" aria-label="Play Forest of Embers">
-      <div class="thumb thumb-platformer">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <radialGradient id="glowP" cx="50%" cy="60%" r="60%">
-              <stop offset="0%" stop-color="#ff8de0" stop-opacity="0.6"/>
-              <stop offset="100%" stop-color="#ff8de0" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#glowP)"/>
-          <g fill="#1f1145" opacity="0.7">
-            <ellipse cx="40" cy="150" rx="28" ry="32"/>
-            <ellipse cx="100" cy="150" rx="32" ry="36"/>
-            <ellipse cx="170" cy="150" rx="28" ry="34"/>
-            <ellipse cx="240" cy="150" rx="34" ry="38"/>
-            <ellipse cx="320" cy="150" rx="30" ry="32"/>
-          </g>
-          <rect x="0" y="180" width="360" height="40" fill="#1a1230"/>
-          <rect x="0" y="176" width="360" height="6" fill="#1b8a40"/>
-          <rect x="0" y="174" width="360" height="3" fill="#4dd07a"/>
-          <g transform="translate(180, 150)">
-            <ellipse cx="0" cy="0" rx="22" ry="22" fill="#ff5cb8" opacity="0.25"/>
-            <path d="M -10 0 Q -8 -22 -2 -8 Q 0 -28 4 -8 Q 10 -22 12 0 Z" fill="#ff5cb8"/>
-            <circle cx="0" cy="0" r="14" fill="#1f6fd1"/>
-            <circle cx="0" cy="2" r="8" fill="#9fd9ff"/>
-            <circle cx="-4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="-4" cy="-1" r="1.4" fill="#0a0a3a"/>
-            <circle cx="4" cy="-1" r="1.4" fill="#0a0a3a"/>
+      <div class="icon icon-platformer">
+        <svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="38" width="50" height="12" fill="#1b8a40"/>
+          <g transform="translate(25, 28)">
+            <ellipse cx="0" cy="0" rx="10" ry="10" fill="#ff5cb8" opacity="0.25"/>
+            <path d="M -5 0 Q -4 -10 -1 -4 Q 0 -13 2 -4 Q 5 -10 6 0 Z" fill="#ff5cb8"/>
+            <circle cx="0" cy="0" r="7" fill="#1f6fd1"/>
+            <circle cx="-2" cy="-1" r="1.5" fill="#fff"/>
+            <circle cx="2" cy="-1" r="1.5" fill="#fff"/>
           </g>
         </svg>
       </div>
-      <div class="body">
-        <div class="title-row">
+      <div class="info">
+        <div class="row">
           <h2 class="game-title">Forest of Embers</h2>
-          <span class="badge">3 LEVELS</span>
+          <span class="badge">3 LV</span>
         </div>
-        <p class="desc">Side-scrolling platformer. Run, jump, double-jump, dodge spikes, bounce off springs, reach the portal at the end.</p>
-        <div class="play-row">
-          <span class="meta">Bloo&nbsp;·&nbsp;Platformer</span>
-          <span class="play">PLAY ▸</span>
-        </div>
+        <p class="desc">Side-scrolling platformer · run, jump, dodge spikes</p>
       </div>
+      <span class="play">PLAY</span>
     </a>
 
     <a class="card" href="tower.html" aria-label="Play Bloo Defense">
-      <div class="thumb thumb-tower">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="laneT" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1a0e30"/>
-              <stop offset="100%" stop-color="#2a1845"/>
-            </linearGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#laneT)"/>
-          <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
-            <path d="M 60 20 H 300 M 60 60 H 300 M 60 100 H 300 M 60 140 H 300 M 60 180 H 300"/>
-            <path d="M 60 20 V 200 M 100 20 V 200 M 140 20 V 200 M 180 20 V 200 M 220 20 V 200 M 260 20 V 200 M 300 20 V 200"/>
-          </g>
-          <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,92,184,0.55)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
-          <circle cx="180" cy="20" r="8" fill="#ff5cb8"/>
-          <polygon points="260,184 273,200 260,216 247,200" fill="#9cd6ff"/>
-          <g transform="translate(140, 110)"><circle cx="0" cy="0" r="14" fill="#ff8a3a"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <g transform="translate(220, 110)"><circle cx="0" cy="0" r="14" fill="#9cd6ff"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <g transform="translate(220, 60)"><circle cx="0" cy="0" r="14" fill="#c46cff"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <circle cx="100" cy="115" r="10" fill="#3a0a55"/>
-          <circle cx="97" cy="113" r="2" fill="#ff3030"/><circle cx="103" cy="113" r="2" fill="#ff3030"/>
+      <div class="icon icon-tower">
+        <svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="38" width="50" height="12" fill="#3a2a55"/>
+          <path d="M 25 5 L 25 18 L 12 18 L 12 32 L 38 32 L 38 42" stroke="rgba(255,92,184,0.7)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <circle cx="14" cy="26" r="6" fill="#ff8a3a"/>
+          <circle cx="36" cy="26" r="6" fill="#9cd6ff"/>
+          <circle cx="36" cy="14" r="6" fill="#c46cff"/>
         </svg>
       </div>
-      <div class="body">
-        <div class="title-row">
+      <div class="info">
+        <div class="row">
           <h2 class="game-title">Bloo Defense</h2>
           <span class="badge new">NEW</span>
         </div>
-        <p class="desc">Open-grid tower defense. Build a maze of elemental Bloo towers, defend the portal through endless escalating waves.</p>
-        <div class="play-row">
-          <span class="meta">Bloo&nbsp;·&nbsp;Tower Defense</span>
-          <span class="play">PLAY ▸</span>
-        </div>
+        <p class="desc">Tower defense · 8 towers, endless waves</p>
       </div>
+      <span class="play">PLAY</span>
     </a>
 
     <a class="card" href="runner.html" aria-label="Play Crowd Runner">
-      <div class="thumb thumb-runner">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="laneR" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1a0e30"/>
-              <stop offset="100%" stop-color="#2a134a"/>
-            </linearGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#laneR)"/>
-          <polygon points="120,0 240,0 320,220 40,220" fill="rgba(20, 8, 40, 0.5)"/>
-          <line x1="120" y1="0" x2="40" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
-          <line x1="240" y1="0" x2="320" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
-          <rect x="80" y="50" width="100" height="38" fill="rgba(80,255,140,0.25)" stroke="#5fe87a" stroke-width="2" rx="6"/>
-          <text x="130" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="20" font-weight="bold">×2</text>
-          <rect x="180" y="50" width="100" height="38" fill="rgba(255,90,140,0.22)" stroke="#ff5c8a" stroke-width="2" rx="6"/>
-          <text x="230" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="18" font-weight="bold">−5</text>
-          <g fill="#9cd6ff" opacity="0.85">
-            <rect x="160" y="120" width="3" height="10"/>
-            <rect x="180" y="135" width="3" height="10"/>
-            <rect x="200" y="120" width="3" height="10"/>
-          </g>
-          <g transform="translate(180, 180)">
-            <circle cx="-30" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="-12" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="0" cy="-2" r="11" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="2"/>
-            <circle cx="14" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="32" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
+      <div class="icon icon-runner">
+        <svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="18,0 32,0 42,50 8,50" fill="rgba(20, 8, 40, 0.5)"/>
+          <line x1="18" y1="0" x2="8" y2="50" stroke="rgba(255,92,184,0.55)" stroke-width="1.5"/>
+          <line x1="32" y1="0" x2="42" y2="50" stroke="rgba(255,92,184,0.55)" stroke-width="1.5"/>
+          <rect x="12" y="14" width="13" height="9" fill="rgba(80,255,140,0.4)" stroke="#5fe87a" stroke-width="1" rx="2"/>
+          <rect x="25" y="14" width="13" height="9" fill="rgba(255,90,140,0.35)" stroke="#ff5c8a" stroke-width="1" rx="2"/>
+          <g transform="translate(25, 40)">
+            <circle cx="-6" cy="0" r="3" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1"/>
+            <circle cx="0" cy="-2" r="4" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1"/>
+            <circle cx="6" cy="0" r="3" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1"/>
           </g>
         </svg>
       </div>
-      <div class="body">
-        <div class="title-row">
+      <div class="info">
+        <div class="row">
           <h2 class="game-title">Crowd Runner</h2>
           <span class="badge new">NEW</span>
         </div>
-        <p class="desc">Top-down endless auto-shooter. Steer through gates to multiply, tap to fire, mow down enemies, survive boss walls.</p>
-        <div class="play-row">
-          <span class="meta">Bloo&nbsp;·&nbsp;Endless</span>
-          <span class="play">PLAY ▸</span>
-        </div>
+        <p class="desc">Endless auto-shooter · multiplier gates, bosses</p>
       </div>
+      <span class="play">PLAY</span>
     </a>
   </div>
 
   <footer>
-    <span>More minigames coming soon · </span>
     <a href="https://github.com/deweydickem/bloo-game" target="_blank" rel="noopener">source</a>
   </footer>
 </body>
