@@ -96,6 +96,40 @@
   })();
 
   // ============================================================================
+  // PAINTED ASSETS
+  // ============================================================================
+  // Towers map to game's mechanic types: cannon=basic_blaster, frost=plasma, storm=lightning
+  // Some assets (enemies, projectiles, tiles, props) are still procedural for now.
+  const ASSET_LIST = {
+    t_blaster:  'sprites/td/towers/basic_blaster.png',
+    t_plasma:   'sprites/td/towers/plasma_tower.png',
+    t_lightning:'sprites/td/towers/lightning_tower.png',
+    e_explosion:'sprites/td/effects/explosion.png',
+    e_ice:      'sprites/td/effects/ice_explosion.png',
+    e_slowfield:'sprites/td/effects/slow_field.png',
+    e_hit:      'sprites/td/effects/hit_effect.png',
+    e_crit:     'sprites/td/effects/crit_effect.png',
+    u_heart:    'sprites/td/ui/heart_life.png',
+    u_orb:      'sprites/td/ui/currency_orb.png',
+    u_gem:      'sprites/td/ui/gem.png',
+    u_wave:     'sprites/td/ui/wave_icon.png',
+    u_play:     'sprites/td/ui/play_button.png',
+    m_coin:     'sprites/td/misc/coin.png',
+    hero:       'sprites/td/hero/blue_spirit.png',
+  };
+  const ASSETS = {};
+  let assetsLoaded = 0; const assetsTotal = Object.keys(ASSET_LIST).length;
+  for (const [k, src] of Object.entries(ASSET_LIST)) {
+    const img = new Image();
+    img.onload  = () => { assetsLoaded++; };
+    img.onerror = () => { assetsLoaded++; img._failed = true; };
+    img.src = src;
+    ASSETS[k] = img;
+  }
+  function ready() { return assetsLoaded >= assetsTotal; }
+  function ok(k) { return ASSETS[k] && ASSETS[k].width && !ASSETS[k]._failed; }
+
+  // ============================================================================
   // GRID
   // ============================================================================
   const TILE = 45;                               // px per tile
@@ -262,13 +296,22 @@
       gold += ENEMY_TYPES[e.type].gold;
       Audio.enemyDie();
       burst(e.x, e.y, '#a020a0', 14);
+      fxBlast(e.x, e.y, 'e_explosion', e.isBoss ? 110 : 70);
       return true;
+    } else {
+      // Small hit flash on partial damage
+      fxBlast(e.x, e.y, 'e_hit', 40);
     }
     return false;
   }
 
   function burst(x, y, color, n = 8) {
     for (let i = 0; i < n; i++) particles.push({ x, y, vx:(Math.random()-.5)*4, vy:(Math.random()-.5)*4, life: 26, color });
+  }
+  // Sprite-based effect popups (painted explosion/ice/hit/crit) — short-lived overlay
+  const fxBlasts = []; // { x, y, t, life, sprite, size }
+  function fxBlast(x, y, sprite, size = 70) {
+    fxBlasts.push({ x, y, t: 0, life: 22, sprite, size });
   }
 
   // ============================================================================
@@ -506,6 +549,25 @@
     // Particles
     for (const pa of particles) { pa.x += pa.vx; pa.y += pa.vy; pa.vy += 0.18; pa.life--; }
     for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
+    // Painted FX blasts
+    for (const f of fxBlasts) f.t++;
+    for (let i = fxBlasts.length - 1; i >= 0; i--) if (fxBlasts[i].t > fxBlasts[i].life) fxBlasts.splice(i, 1);
+  }
+
+  function drawFxBlasts() {
+    for (const f of fxBlasts) {
+      const img = ASSETS[f.sprite];
+      if (!img || !img.width || img._failed) continue;
+      const t = f.t / f.life;
+      const scale = 0.7 + 0.6 * t;          // expand
+      const alpha = Math.max(0, 1 - t);     // fade
+      const w = f.size * scale;
+      const aspect = img.width / img.height;
+      const h = w / aspect;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, f.x - w/2, f.y - h/2, w, h);
+      ctx.globalAlpha = 1;
+    }
   }
 
   // ============================================================================
@@ -634,32 +696,45 @@
     }
   }
 
+  // Map tower type → painted sprite key
+  const TOWER_SPRITE = {
+    cannon: 't_blaster',
+    frost:  't_plasma',
+    storm:  't_lightning',
+  };
   function drawTowers() {
     for (const t of towers) {
       const def = TOWER_TYPES[t.type];
       const center = tileCenter(t.c, t.r);
-      // base
-      ctx.shadowColor = def.color; ctx.shadowBlur = t.fireFlash > 0 ? 20 : 10;
-      // body (Bloo-like silhouette: round head + small body)
-      ctx.fillStyle = '#1a1230';
-      ctx.beginPath(); ctx.arc(center.x, center.y + 6, 16, 0, Math.PI*2); ctx.fill();
-      // head colored to tower type
-      ctx.fillStyle = def.color;
-      ctx.beginPath(); ctx.arc(center.x, center.y - 4, 14, 0, Math.PI*2); ctx.fill();
-      // little flame on top
-      ctx.beginPath();
-      ctx.moveTo(center.x - 6, center.y - 12);
-      ctx.quadraticCurveTo(center.x, center.y - 24, center.x + 6, center.y - 12);
-      ctx.quadraticCurveTo(center.x, center.y - 14, center.x - 6, center.y - 12);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      // eyes
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(center.x - 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(center.x + 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#0a0a3a';
-      ctx.beginPath(); ctx.arc(center.x - 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(center.x + 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
+      const spriteKey = TOWER_SPRITE[t.type];
+      const img = ASSETS[spriteKey];
+      if (img && img.width && !img._failed) {
+        // Painted sprite — crop bottom 12% to remove pink ground aura, draw bottom-aligned
+        const sw = img.width, sh = Math.floor(img.height * 0.88);
+        const targetH = TILE * 1.5;
+        const aspect = sw / sh;
+        const targetW = targetH * aspect;
+        const dx = center.x - targetW / 2;
+        const dy = center.y + TILE/2 - targetH;
+        // soft glow on fire
+        if (t.fireFlash > 0) { ctx.shadowColor = def.color; ctx.shadowBlur = 18; }
+        ctx.drawImage(img, 0, 0, sw, sh, dx, dy, targetW, targetH);
+        ctx.shadowBlur = 0;
+      } else {
+        // Procedural fallback (the original Bloo silhouette)
+        ctx.shadowColor = def.color; ctx.shadowBlur = t.fireFlash > 0 ? 20 : 10;
+        ctx.fillStyle = '#1a1230';
+        ctx.beginPath(); ctx.arc(center.x, center.y + 6, 16, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = def.color;
+        ctx.beginPath(); ctx.arc(center.x, center.y - 4, 14, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(center.x - 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(center.x + 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#0a0a3a';
+        ctx.beginPath(); ctx.arc(center.x - 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(center.x + 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
+      }
     }
   }
 
@@ -683,10 +758,17 @@
       ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(barX, barY, barW, 4);
       ctx.fillStyle = e.hp / e.hpMax > 0.5 ? '#5fe87a' : (e.hp / e.hpMax > 0.2 ? '#ffd54a' : '#ff5c8a');
       ctx.fillRect(barX, barY, barW * Math.max(0, e.hp / e.hpMax), 4);
-      // slow indicator
+      // slow indicator — painted slow_field sprite under feet
       if (e.slowT > 0) {
-        ctx.strokeStyle = 'rgba(156, 214, 255, 0.7)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(e.x, e.y, def.radius + 4, 0, Math.PI*2); ctx.stroke();
+        if (ok('e_slowfield')) {
+          const sz = def.radius * 3;
+          ctx.globalAlpha = 0.55 + 0.25 * Math.sin(e.slowT * 0.2);
+          ctx.drawImage(ASSETS.e_slowfield, e.x - sz/2, e.y - sz/4, sz, sz/2);
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = 'rgba(156, 214, 255, 0.7)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(e.x, e.y, def.radius + 4, 0, Math.PI*2); ctx.stroke();
+        }
       }
     }
   }
@@ -724,27 +806,38 @@
     roundRect(14, 14, W - 28, 76, 12); ctx.fill();
     ctx.strokeStyle = 'rgba(255, 92, 184, 0.4)'; ctx.lineWidth = 1.2; ctx.stroke();
 
-    // GOLD
-    ctx.fillStyle = '#ffd54a'; ctx.shadowColor = '#ffd54a'; ctx.shadowBlur = 6;
-    ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('💰 ' + gold, 28, 38);
-    ctx.shadowBlur = 0;
+    // GOLD — painted orb icon
+    if (ok('u_orb')) {
+      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 8;
+      ctx.drawImage(ASSETS.u_orb, 22, 22, 30, 30);
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(gold), 58, 38);
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('GOLD', 28, 58);
+    ctx.fillText('GOLD', 58, 58);
 
-    // LIVES
-    ctx.fillStyle = '#ff5c8a'; ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 6;
-    ctx.font = 'bold 22px system-ui';
-    ctx.fillText('♥ ' + lives, 130, 38);
-    ctx.shadowBlur = 0;
+    // LIVES — painted heart icon
+    if (ok('u_heart')) {
+      ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 8;
+      ctx.drawImage(ASSETS.u_heart, 145, 22, 30, 28);
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui';
+    ctx.fillText(String(lives), 180, 38);
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('LIVES', 130, 58);
+    ctx.fillText('LIVES', 180, 58);
 
-    // WAVE
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('WAVE', W/2 - 12, 30);
-    ctx.font = 'bold 22px system-ui';
-    ctx.fillText((Math.min(waveIdx + 1, WAVES.length)) + ' / ' + WAVES.length, W/2 - 12, 56);
+    // WAVE — painted icon
+    if (ok('u_wave')) {
+      ctx.shadowColor = '#c46cff'; ctx.shadowBlur = 6;
+      ctx.drawImage(ASSETS.u_wave, W/2 - 50, 24, 28, 26);
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'left';
+    ctx.fillText('WAVE', W/2 - 18, 32);
+    ctx.font = 'bold 18px system-ui';
+    ctx.fillText((Math.min(waveIdx + 1, WAVES.length)) + ' / ' + WAVES.length, W/2 - 18, 52);
 
     // START WAVE button (top-right)
     const btnX = W - 140, btnY = 22, btnW = 120, btnH = 60;
@@ -796,23 +889,35 @@
       roundRect(bx, by, btnW, 80, 10); ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Mini Bloo icon
-      ctx.shadowColor = def.color; ctx.shadowBlur = 8;
-      ctx.fillStyle = def.color;
-      ctx.beginPath(); ctx.arc(bx + btnW/2, by + 26, 14, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(bx + btnW/2 - 4, by + 25, 2.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(bx + btnW/2 + 4, by + 25, 2.5, 0, Math.PI*2); ctx.fill();
+      // Painted tower icon (mini)
+      const spriteKey = TOWER_SPRITE[types[i]];
+      const img = ASSETS[spriteKey];
+      if (img && img.width && !img._failed) {
+        const sw = img.width, sh = Math.floor(img.height * 0.88);
+        const targetH = 38;
+        const aspect = sw / sh;
+        const targetW = targetH * aspect;
+        if (sel) { ctx.shadowColor = def.color; ctx.shadowBlur = 12; }
+        ctx.drawImage(img, 0, 0, sw, sh, bx + btnW/2 - targetW/2, by + 4, targetW, targetH);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.shadowColor = def.color; ctx.shadowBlur = 8;
+        ctx.fillStyle = def.color;
+        ctx.beginPath(); ctx.arc(bx + btnW/2, by + 26, 14, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
 
       // Name
       ctx.fillStyle = afford ? '#fff' : 'rgba(255, 255, 255, 0.4)';
       ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
       ctx.fillText(def.name.split(' ')[0], bx + btnW/2, by + 56);
-      // Cost
-      ctx.fillStyle = afford ? '#ffd54a' : '#ff5c8a';
+      // Cost — painted orb icon + number
+      if (ok('u_orb')) {
+        ctx.drawImage(ASSETS.u_orb, bx + btnW/2 - 28, by + 64, 14, 14);
+      }
+      ctx.fillStyle = afford ? '#fff' : '#ff5c8a';
       ctx.font = 'bold 13px system-ui';
-      ctx.fillText('💰 ' + def.cost, bx + btnW/2, by + 73);
+      ctx.fillText(String(def.cost), bx + btnW/2 + 4, by + 73);
     }
   }
 
@@ -845,7 +950,22 @@
     ctx.closePath();
   }
 
+  function drawLoading() {
+    ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Loading… ' + assetsLoaded + '/' + assetsTotal, W/2, H/2);
+    const pw = 240, ph = 8;
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(W/2 - pw/2, H/2 + 16, pw, ph);
+    ctx.fillStyle = '#ff5cb8';
+    ctx.fillRect(W/2 - pw/2, H/2 + 16, pw * (assetsLoaded / assetsTotal), ph);
+  }
+
   function frame() {
+    if (!ready()) {
+      drawLoading();
+      requestAnimationFrame(frame);
+      return;
+    }
     update();
     drawBg();
     drawGrid();
@@ -855,6 +975,7 @@
     drawTowers();
     drawProjectiles();
     drawEnemies();
+    drawFxBlasts();
     drawParticles();
     drawHUD();
     drawGameOver();
