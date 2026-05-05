@@ -19,8 +19,13 @@
   body {
     background: transparent;
     min-height: 100vh;
+    min-height: 100dvh; /* better on mobile — accounts for browser chrome */
     display: flex; flex-direction: column; align-items: center;
-    padding: 36px 20px 60px;
+    padding:
+      calc(28px + env(safe-area-inset-top))
+      calc(20px + env(safe-area-inset-right))
+      calc(40px + env(safe-area-inset-bottom))
+      calc(20px + env(safe-area-inset-left));
     box-sizing: border-box;
     position: relative;
   }
@@ -29,10 +34,16 @@
   .bg-img {
     position: fixed; inset: 0;
     width: 100vw; height: 100vh;
+    height: 100dvh;
     object-fit: cover;
-    object-position: center center;
+    /* Bloo character is on the right side of the painting; nudge so it stays visible */
+    object-position: 70% center;
     z-index: -2;
     display: block;
+  }
+  /* Portrait phones: pull further to the right + nudge down so Bloo's platform shows */
+  @media (max-aspect-ratio: 1/1) {
+    .bg-img { object-position: 75% 60%; }
   }
   .bg-vignette {
     position: fixed; inset: 0; pointer-events: none; z-index: -1;
@@ -41,9 +52,11 @@
   }
 
   /* ---- Header ---- */
-  header { text-align: center; margin: 8px 0 30px; position: relative; z-index: 1; }
+  header { text-align: center; margin: 4px 0 24px; position: relative; z-index: 1; }
   h1 {
-    margin: 0; font-size: clamp(40px, 7vw, 76px); font-weight: 800; letter-spacing: 1px;
+    margin: 0;
+    font-size: clamp(34px, 9vw, 76px);
+    font-weight: 800; letter-spacing: 1px; line-height: 1.05;
     background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     animation: titleGlow 4s ease-in-out infinite;
@@ -53,7 +66,9 @@
     50%      { filter: drop-shadow(0 0 26px rgba(255, 92, 184, 0.85)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
   }
   .subtitle {
-    color: #fff; margin-top: 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;
+    color: #fff; margin-top: 8px;
+    font-size: clamp(11px, 2.5vw, 14px);
+    letter-spacing: 1px; text-transform: uppercase;
     text-shadow: 0 0 12px rgba(255, 92, 184, 0.5), 0 2px 4px rgba(0,0,0,0.7);
     opacity: 0.85;
   }
@@ -66,9 +81,29 @@
     position: relative; z-index: 1;
     max-width: 720px; width: 100%;
   }
-  /* Mobile: stack to 1 column */
+  /* Mobile: stack to 1 column, smaller everything */
   @media (max-width: 640px) {
-    .grid { grid-template-columns: 1fr; gap: 14px; max-width: 360px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; max-width: 420px; }
+    .thumb { height: 110px; }
+    .body { padding: 12px 14px 14px; }
+    .game-title { font-size: 18px; }
+    p.desc { font-size: 13px; line-height: 1.4; margin-top: 6px; }
+    .play-row { margin-top: 12px; }
+    .play { padding: 8px 14px; font-size: 13px; }
+    .scene-platformer .hero { height: 72px; }
+    .scene-tower .tower { height: 60px; }
+    .scene-tower .enemy { height: 42px; }
+    .scene-tower .portal { height: 40px; }
+    .scene-runner .crowd img { height: 30px; }
+    .scene-runner .crowd img:nth-child(1), .scene-runner .crowd img:nth-child(5) { height: 24px; }
+    .scene-runner .gate .half { width: 52px; height: 26px; font-size: 14px; }
+  }
+  /* Very small / very narrow: tighten everything more */
+  @media (max-width: 380px) {
+    .grid { gap: 10px; }
+    .thumb { height: 96px; }
+    .game-title { font-size: 16px; }
+    p.desc { font-size: 12px; }
   }
   .card {
     position: relative;
@@ -207,10 +242,13 @@
   .meta { color: rgba(255,255,255,0.4); font-size: 12px; }
 
   footer {
-    margin-top: 40px;
+    margin-top: 28px;
     color: rgba(255, 255, 255, 0.7);
     font-size: 12px; text-align: center; position: relative; z-index: 1;
     text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  }
+  @media (max-width: 640px) {
+    footer { margin-top: 20px; font-size: 11px; }
   }
   footer a { color: var(--pink-2); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
@@ -333,8 +371,9 @@
   </footer>
 
   <script>
-    // Spawn 40 floating pink particles randomly across the viewport
-    for (let i = 0; i < 40; i++) {
+    // Spawn floating pink particles — fewer on small screens
+    const particleCount = window.innerWidth < 640 ? 20 : 40;
+    for (let i = 0; i < particleCount; i++) {
       const p = document.createElement('div');
       p.className = 'particle';
       p.style.left = Math.random() * 100 + 'vw';
