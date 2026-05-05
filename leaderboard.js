@@ -44,24 +44,60 @@
     if (_fb !== null) return _fb;
     if (!ENABLE_CLOUD) return _fb = false;
     try {
-      const appMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`);
-      const fsMod  = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
+      const appMod  = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`);
+      const fsMod   = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
+      const authMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-auth.js`);
       const app = appMod.initializeApp(FIREBASE_CONFIG);
       const db = fsMod.getFirestore(app);
+      const auth = authMod.getAuth(app);
       _fb = {
-        db,
+        app, db, auth,
         collection: fsMod.collection,
         addDoc: fsMod.addDoc,
         getDocs: fsMod.getDocs,
+        deleteDoc: fsMod.deleteDoc,
+        doc: fsMod.doc,
         query: fsMod.query,
         orderBy: fsMod.orderBy,
         limit: fsMod.limit,
+        signInWithEmailAndPassword: authMod.signInWithEmailAndPassword,
+        signOut: authMod.signOut,
       };
       return _fb;
     } catch (e) {
       console.warn('[BlooLB] Firebase load failed, using local only:', e);
       return _fb = false;
     }
+  }
+
+  // ----- Admin: wipe all leaderboard collections -----
+  // Requires the caller to first sign in with an account whose email matches
+  // the one allowed in your Firestore rules (allow delete: if request.auth.token.email == 'X').
+  // Returns { ok: true, deleted: N } on success or { ok: false, error: '...' } on failure.
+  async function adminSignInAndWipe(email, password) {
+    const fb = await loadFirebase();
+    if (!fb) return { ok: false, error: 'Firebase failed to load' };
+    try {
+      await fb.signInWithEmailAndPassword(fb.auth, email, password);
+    } catch (e) {
+      return { ok: false, error: 'Sign-in failed: ' + (e.code || e.message) };
+    }
+    let total = 0;
+    for (const game of Object.keys(GAMES)) {
+      try {
+        const snap = await fb.getDocs(fb.collection(fb.db, 'scores_' + game));
+        const dels = [];
+        snap.forEach(d => dels.push(fb.deleteDoc(fb.doc(fb.db, 'scores_' + game, d.id))));
+        await Promise.all(dels);
+        total += dels.length;
+      } catch (e) {
+        return { ok: false, error: 'Delete failed on ' + game + ': ' + (e.code || e.message), partial: total };
+      }
+    }
+    // Wipe local cache too so the page doesn't show stale entries
+    for (const g of Object.keys(GAMES)) _local.save(g, []);
+    try { await fb.signOut(fb.auth); } catch (_) {}
+    return { ok: true, deleted: total };
   }
 
   // ----- username + profanity filter -----
@@ -272,5 +308,6 @@
     GAMES,
     getUsername, setUsername, promptUsername, ensureUsername,
     submitScore, getScores, getCumulative,
+    adminSignInAndWipe,
   };
 })(window);

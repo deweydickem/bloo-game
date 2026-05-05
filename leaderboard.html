@@ -82,6 +82,36 @@
     th, td { padding: 8px 6px; font-size: 13px; }
     td.date { display: none; }
   }
+
+  /* ---- Hidden admin panel (visit /leaderboard.html#admin to reveal) ---- */
+  .admin-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: none; align-items: center; justify-content: center; z-index: 9999;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 20px;
+  }
+  .admin-overlay.show { display: flex; }
+  .admin-modal {
+    background: linear-gradient(180deg, #1a0e3a 0%, #0f0820 100%);
+    border: 1.5px solid rgba(255, 92, 138, 0.6);
+    border-radius: 16px; padding: 26px 24px; max-width: 380px; width: 100%;
+    color: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 50px rgba(255, 92, 138, 0.3);
+  }
+  .admin-modal h2 { margin: 0 0 6px; font-size: 20px; color: #ff5c8a; }
+  .admin-modal p { margin: 0 0 14px; color: rgba(255,255,255,0.65); font-size: 13px; line-height: 1.5; }
+  .admin-modal label { display: block; font-size: 11px; letter-spacing: .8px; color: rgba(255,255,255,0.55); margin: 10px 0 4px; text-transform: uppercase; }
+  .admin-modal input { width: 100%; padding: 10px 12px; background: rgba(20,8,40,0.6);
+    border: 1.5px solid rgba(255, 92, 138, 0.4); border-radius: 8px; color: #fff;
+    font-size: 14px; box-sizing: border-box; outline: none; font-family: inherit; }
+  .admin-modal input:focus { border-color: #ff5c8a; }
+  .admin-modal .row { display: flex; gap: 10px; margin-top: 18px; }
+  .admin-modal button { flex: 1; padding: 11px; border: 0; border-radius: 999px; font-weight: 700;
+    font-size: 14px; cursor: pointer; font-family: inherit; letter-spacing: .5px; }
+  .admin-modal .danger { background: linear-gradient(135deg, #ff5c8a 0%, #c00050 100%); color: #fff;
+    box-shadow: 0 6px 18px rgba(255, 92, 138, 0.45); }
+  .admin-modal .cancel { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+  .admin-modal .status { margin-top: 12px; min-height: 18px; font-size: 13px; }
+  .admin-modal .status.ok { color: #5fe87a; }
+  .admin-modal .status.err { color: #ff5c8a; }
 </style>
 </head>
 <body>
@@ -106,6 +136,23 @@
     <a href="game.html">Play Forest of Embers</a>
     <a href="tower.html">Play Bloo Defense</a>
     <a href="runner.html">Play Crowd Runner</a>
+  </div>
+
+  <!-- Hidden admin panel — visit /leaderboard.html#admin to reveal -->
+  <div class="admin-overlay" id="adminOverlay">
+    <div class="admin-modal" role="dialog" aria-modal="true">
+      <h2>⚠️ Admin: Wipe leaderboard</h2>
+      <p>This permanently deletes EVERY score across all 3 games. Sign in with the admin account email/password configured in Firebase Auth.</p>
+      <label>Admin email</label>
+      <input type="email" id="adminEmail" autocomplete="email" placeholder="you@example.com" />
+      <label>Password</label>
+      <input type="password" id="adminPass" autocomplete="current-password" placeholder="••••••••" />
+      <div class="status" id="adminStatus"></div>
+      <div class="row">
+        <button class="cancel" id="adminCancel">CANCEL</button>
+        <button class="danger" id="adminWipe">WIPE ALL</button>
+      </div>
+    </div>
   </div>
 
   <script src="leaderboard.js"></script>
@@ -214,6 +261,43 @@
     refreshUser();
     renderTabs();
     renderBoard();
+
+    // ---- Admin wipe panel (hidden behind #admin hash) ----
+    const adminOverlay = document.getElementById('adminOverlay');
+    const adminStatus  = document.getElementById('adminStatus');
+    const adminEmail   = document.getElementById('adminEmail');
+    const adminPass    = document.getElementById('adminPass');
+    function checkHash() {
+      if (location.hash === '#admin') {
+        adminOverlay.classList.add('show');
+        setTimeout(() => adminEmail.focus(), 50);
+      } else {
+        adminOverlay.classList.remove('show');
+      }
+    }
+    window.addEventListener('hashchange', checkHash);
+    checkHash();
+    document.getElementById('adminCancel').addEventListener('click', () => {
+      location.hash = '';
+      adminStatus.textContent = ''; adminStatus.className = 'status';
+      adminEmail.value = ''; adminPass.value = '';
+    });
+    document.getElementById('adminWipe').addEventListener('click', async () => {
+      const email = adminEmail.value.trim();
+      const pass  = adminPass.value;
+      if (!email || !pass) { adminStatus.textContent = 'Enter email + password.'; adminStatus.className = 'status err'; return; }
+      if (!confirm('This will permanently delete every score. Continue?')) return;
+      adminStatus.textContent = 'Wiping…'; adminStatus.className = 'status';
+      const r = await BlooLB.adminSignInAndWipe(email, pass);
+      if (r.ok) {
+        adminStatus.textContent = 'Deleted ' + r.deleted + ' scores. Reloading…';
+        adminStatus.className = 'status ok';
+        setTimeout(() => { location.hash = ''; location.reload(); }, 900);
+      } else {
+        adminStatus.textContent = r.error + (r.partial ? ' (deleted ' + r.partial + ' before failing)' : '');
+        adminStatus.className = 'status err';
+      }
+    });
   </script>
 </body>
 </html>
