@@ -94,9 +94,94 @@
 
   .thumb { height: 140px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
-  .thumb-runner { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
-  .thumb-tower  { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
-  .thumb svg { width: 100%; height: 100%; }
+  .thumb-runner     { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
+  .thumb-tower      { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
+
+  /* Painted-asset scenes inside each thumb */
+  .scene { position: absolute; inset: 0; }
+  .scene img { position: absolute; image-rendering: auto; pointer-events: none; }
+
+  /* PLATFORMER scene: grass strip across the bottom + Bloo standing on it */
+  .scene-platformer .ground {
+    bottom: 0; left: 0; right: 0; height: 36px; width: 100%;
+    object-fit: cover; object-position: center top;
+    filter: drop-shadow(0 -2px 6px rgba(0,0,0,0.5));
+  }
+  .scene-platformer .hero {
+    bottom: 26px; left: 50%; transform: translateX(-50%);
+    height: 92px; filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.4));
+  }
+  .scene-platformer .coin {
+    height: 24px; bottom: 70px;
+    filter: drop-shadow(0 0 10px rgba(255, 200, 80, 0.6));
+    animation: bobLight 2s ease-in-out infinite;
+  }
+  @keyframes bobLight { 0%,100%{ transform: translateY(0);} 50%{transform:translateY(-4px);} }
+
+  /* TOWER DEFENSE scene: grass + winding path tiles + a tower + an enemy */
+  .scene-tower .grass-row {
+    bottom: 0; left: 0; right: 0; height: 36px; width: 100%;
+    object-fit: cover; object-position: center top;
+    filter: drop-shadow(0 -2px 6px rgba(0,0,0,0.5));
+  }
+  .scene-tower .path {
+    height: 36px; width: 36px; bottom: 0;
+    image-rendering: auto;
+  }
+  .scene-tower .tower {
+    bottom: 28px; height: 76px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 12px rgba(255,180,80,0.4));
+  }
+  .scene-tower .enemy {
+    bottom: 18px; height: 52px;
+    filter: drop-shadow(0 0 10px rgba(160, 60, 200, 0.6));
+  }
+  .scene-tower .portal {
+    top: 6px; right: 14px; height: 50px;
+    filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.6));
+    animation: bobLight 3s ease-in-out infinite;
+  }
+
+  /* CROWD RUNNER scene: trapezoid lane + crowd of Bloos */
+  .scene-runner .lane {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(255,92,184,0.15) 0%, rgba(255,92,184,0) 80%),
+      linear-gradient(180deg, #1a0e30 0%, #2a134a 100%);
+    clip-path: polygon(35% 0%, 65% 0%, 95% 100%, 5% 100%);
+  }
+  .scene-runner .lane-edge {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: rgba(255, 92, 184, 0.7);
+    box-shadow: 0 0 10px rgba(255, 92, 184, 0.6);
+  }
+  .scene-runner .lane-edge.left  { left: 35%; transform: skewX(0); transform-origin: top; }
+  .scene-runner .lane-edge.right { left: 65%; }
+  /* Use clip-path-friendly approach: draw two slanted lines via SVG instead */
+  .scene-runner svg.edges {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .scene-runner .gate {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 4px;
+  }
+  .scene-runner .gate .half {
+    width: 64px; height: 30px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 16px; color: #fff;
+  }
+  .scene-runner .gate .good { background: rgba(80,255,140,0.30); border: 2px solid #5fe87a; box-shadow: 0 0 12px rgba(95,232,122,0.5); }
+  .scene-runner .gate .bad  { background: rgba(255,90,140,0.28); border: 2px solid #ff5c8a; box-shadow: 0 0 12px rgba(255,92,138,0.5); }
+  .scene-runner .crowd {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2px; align-items: flex-end;
+  }
+  .scene-runner .crowd img {
+    position: relative; height: 38px;
+    filter: drop-shadow(0 0 8px rgba(255, 92, 184, 0.4));
+  }
+  .scene-runner .crowd img:nth-child(1), .scene-runner .crowd img:nth-child(5) { height: 32px; opacity: 0.85; }
 
   .body { padding: 14px 18px 16px; }
   .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -143,35 +228,12 @@
   <div class="grid">
     <a class="card" href="game.html" aria-label="Play Forest of Embers">
       <div class="thumb thumb-platformer">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <radialGradient id="glowP" cx="50%" cy="60%" r="60%">
-              <stop offset="0%" stop-color="#ff8de0" stop-opacity="0.6"/>
-              <stop offset="100%" stop-color="#ff8de0" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#glowP)"/>
-          <g fill="#1f1145" opacity="0.7">
-            <ellipse cx="40" cy="150" rx="28" ry="32"/>
-            <ellipse cx="100" cy="150" rx="32" ry="36"/>
-            <ellipse cx="170" cy="150" rx="28" ry="34"/>
-            <ellipse cx="240" cy="150" rx="34" ry="38"/>
-            <ellipse cx="320" cy="150" rx="30" ry="32"/>
-          </g>
-          <rect x="0" y="180" width="360" height="40" fill="#1a1230"/>
-          <rect x="0" y="176" width="360" height="6" fill="#1b8a40"/>
-          <rect x="0" y="174" width="360" height="3" fill="#4dd07a"/>
-          <g transform="translate(180, 150)">
-            <ellipse cx="0" cy="0" rx="22" ry="22" fill="#ff5cb8" opacity="0.25"/>
-            <path d="M -10 0 Q -8 -22 -2 -8 Q 0 -28 4 -8 Q 10 -22 12 0 Z" fill="#ff5cb8"/>
-            <circle cx="0" cy="0" r="14" fill="#1f6fd1"/>
-            <circle cx="0" cy="2" r="8" fill="#9fd9ff"/>
-            <circle cx="-4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="4" cy="-2" r="3" fill="#fff"/>
-            <circle cx="-4" cy="-1" r="1.4" fill="#0a0a3a"/>
-            <circle cx="4" cy="-1" r="1.4" fill="#0a0a3a"/>
-          </g>
-        </svg>
+        <div class="scene scene-platformer">
+          <img class="ground" src="sprites/td/tiles/tile_grass.png" alt="" aria-hidden="true">
+          <img class="hero" src="sprites/character/idle_1.png" alt="" aria-hidden="true">
+          <img class="coin" src="sprites/collectibles/coin_1.png" alt="" aria-hidden="true" style="left: 22%;">
+          <img class="coin" src="sprites/collectibles/coin_1.png" alt="" aria-hidden="true" style="right: 18%; animation-delay: .4s;">
+        </div>
       </div>
       <div class="body">
         <div class="title-row">
@@ -188,28 +250,16 @@
 
     <a class="card" href="tower.html" aria-label="Play Bloo Defense">
       <div class="thumb thumb-tower">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="laneT" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1a0e30"/>
-              <stop offset="100%" stop-color="#2a1845"/>
-            </linearGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#laneT)"/>
-          <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
-            <path d="M 60 20 H 300 M 60 60 H 300 M 60 100 H 300 M 60 140 H 300 M 60 180 H 300"/>
-            <path d="M 60 20 V 200 M 100 20 V 200 M 140 20 V 200 M 180 20 V 200 M 220 20 V 200 M 260 20 V 200 M 300 20 V 200"/>
-          </g>
-          <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,92,184,0.55)" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M 180 20 L 180 80 L 100 80 L 100 140 L 260 140 L 260 200" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
-          <circle cx="180" cy="20" r="8" fill="#ff5cb8"/>
-          <polygon points="260,184 273,200 260,216 247,200" fill="#9cd6ff"/>
-          <g transform="translate(140, 110)"><circle cx="0" cy="0" r="14" fill="#ff8a3a"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <g transform="translate(220, 110)"><circle cx="0" cy="0" r="14" fill="#9cd6ff"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <g transform="translate(220, 60)"><circle cx="0" cy="0" r="14" fill="#c46cff"/><circle cx="-4" cy="-1" r="2.5" fill="#fff"/><circle cx="4" cy="-1" r="2.5" fill="#fff"/><circle cx="-4" cy="0" r="1.2" fill="#0a0a3a"/><circle cx="4" cy="0" r="1.2" fill="#0a0a3a"/></g>
-          <circle cx="100" cy="115" r="10" fill="#3a0a55"/>
-          <circle cx="97" cy="113" r="2" fill="#ff3030"/><circle cx="103" cy="113" r="2" fill="#ff3030"/>
-        </svg>
+        <div class="scene scene-tower">
+          <img class="grass-row" src="sprites/td/tiles/tile_grass.png" alt="" aria-hidden="true">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 28%;">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 44%;">
+          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 60%;">
+          <img class="enemy" src="sprites/td/enemies/enemy_basic.png" alt="" aria-hidden="true" style="left: 32%;">
+          <img class="tower" src="sprites/td/towers/tower_basic_blaster.png" alt="" aria-hidden="true" style="left: 8%;">
+          <img class="tower" src="sprites/td/towers/tower_lightning.png" alt="" aria-hidden="true" style="right: 8%;">
+          <img class="portal" src="sprites/td/tiles/tile_portal.png" alt="" aria-hidden="true">
+        </div>
       </div>
       <div class="body">
         <div class="title-row">
@@ -226,34 +276,24 @@
 
     <a class="card" href="runner.html" aria-label="Play Crowd Runner">
       <div class="thumb thumb-runner">
-        <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="laneR" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1a0e30"/>
-              <stop offset="100%" stop-color="#2a134a"/>
-            </linearGradient>
-          </defs>
-          <rect width="360" height="220" fill="url(#laneR)"/>
-          <polygon points="120,0 240,0 320,220 40,220" fill="rgba(20, 8, 40, 0.5)"/>
-          <line x1="120" y1="0" x2="40" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
-          <line x1="240" y1="0" x2="320" y2="220" stroke="rgba(255,92,184,0.55)" stroke-width="2"/>
-          <rect x="80" y="50" width="100" height="38" fill="rgba(80,255,140,0.25)" stroke="#5fe87a" stroke-width="2" rx="6"/>
-          <text x="130" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="20" font-weight="bold">×2</text>
-          <rect x="180" y="50" width="100" height="38" fill="rgba(255,90,140,0.22)" stroke="#ff5c8a" stroke-width="2" rx="6"/>
-          <text x="230" y="76" text-anchor="middle" fill="#fff" font-family="system-ui" font-size="18" font-weight="bold">−5</text>
-          <g fill="#9cd6ff" opacity="0.85">
-            <rect x="160" y="120" width="3" height="10"/>
-            <rect x="180" y="135" width="3" height="10"/>
-            <rect x="200" y="120" width="3" height="10"/>
-          </g>
-          <g transform="translate(180, 180)">
-            <circle cx="-30" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="-12" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="0" cy="-2" r="11" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="2"/>
-            <circle cx="14" cy="6" r="9" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-            <circle cx="32" cy="0" r="8" fill="#1f6fd1" stroke="#ff5cb8" stroke-width="1.5" opacity="0.85"/>
-          </g>
-        </svg>
+        <div class="scene scene-runner">
+          <div class="lane"></div>
+          <svg class="edges" viewBox="0 0 360 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="126" y1="0" x2="18" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
+            <line x1="234" y1="0" x2="342" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
+          </svg>
+          <div class="gate">
+            <div class="half good">×2</div>
+            <div class="half bad">−5</div>
+          </div>
+          <div class="crowd">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
+          </div>
+        </div>
       </div>
       <div class="body">
         <div class="title-row">
