@@ -135,6 +135,13 @@
   /* Painted-asset scenes inside each thumb */
   .scene { position: absolute; inset: 0; }
   .scene img { position: absolute; image-rendering: auto; pointer-events: none; }
+  /* Full-bleed painted thumbnail (single image fills the card header) */
+  .thumb-photo {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center center;
+    pointer-events: none;
+  }
 
   /* PLATFORMER scene: grass strip across the bottom + Bloo standing on it */
   .scene-platformer .ground {
@@ -306,16 +313,7 @@
 
     <a class="card" href="tower.html" aria-label="Play Bloo Defense">
       <div class="thumb thumb-tower">
-        <div class="scene scene-tower">
-          <img class="grass-row" src="sprites/td/tiles/tile_grass.png" alt="" aria-hidden="true">
-          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 28%;">
-          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 44%;">
-          <img class="path" src="sprites/td/tiles/tile_path.png" alt="" aria-hidden="true" style="left: 60%;">
-          <img class="enemy" src="sprites/td/enemies/enemy_basic.png" alt="" aria-hidden="true" style="left: 32%;">
-          <img class="tower" src="sprites/td/towers/tower_basic_blaster.png" alt="" aria-hidden="true" style="left: 8%;">
-          <img class="tower" src="sprites/td/towers/tower_lightning.png" alt="" aria-hidden="true" style="right: 8%;">
-          <img class="portal" src="sprites/td/tiles/tile_portal.png" alt="" aria-hidden="true">
-        </div>
+        <img class="thumb-photo" src="thumb_tower.jpg" alt="" aria-hidden="true">
       </div>
       <div class="body">
         <div class="title-row">
@@ -332,24 +330,7 @@
 
     <a class="card" href="runner.html" aria-label="Play Crowd Runner">
       <div class="thumb thumb-runner">
-        <div class="scene scene-runner">
-          <div class="lane"></div>
-          <svg class="edges" viewBox="0 0 360 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <line x1="126" y1="0" x2="18" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
-            <line x1="234" y1="0" x2="342" y2="140" stroke="rgba(255,92,184,0.7)" stroke-width="2.5" />
-          </svg>
-          <div class="gate">
-            <div class="half good">×2</div>
-            <div class="half bad">−5</div>
-          </div>
-          <div class="crowd">
-            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
-            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
-            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
-            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
-            <img src="sprites/character/bloo_back.png" alt="" aria-hidden="true">
-          </div>
-        </div>
+        <img class="thumb-photo" src="thumb_runner.jpg" alt="" aria-hidden="true">
       </div>
       <div class="body">
         <div class="title-row">
