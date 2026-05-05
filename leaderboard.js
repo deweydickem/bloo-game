@@ -64,13 +64,60 @@
     }
   }
 
-  // ----- username -----
+  // ----- username + profanity filter -----
+  // Mild body-part words (dick / balls / ass / shit / fuck / damn / bitch) are
+  // intentionally allowed. The filter targets actual slurs, sexual-violence
+  // language, and aggressive compound insults.
+  const BLOCKED_TERMS = [
+    // racial / ethnic slurs
+    'nigger', 'nigga', 'chink', 'gook', 'spic', 'kike', 'wetback', 'beaner', 'sandnigger',
+    // anti-LGBTQ slurs
+    'faggot', 'fag', 'tranny', 'dyke', 'queer',
+    // ableist slur
+    'retard', 'retarded',
+    // sexual violence
+    'rapist', 'rape', 'raping', 'rapes',
+    // pedophilia
+    'pedo', 'pedophile', 'kiddiefuck',
+    // aggressive compound insults the user explicitly listed
+    'fucker', 'cocksucker', 'motherfucker', 'cumdumpster',
+    // misc hate
+    'killyourself', 'killyaself', 'kys',
+  ];
+  // Strip leetspeak + spacing so names like "n!gg3r" or "n i g g e r" still match.
+  function normalizeForFilter(s) {
+    return String(s).toLowerCase()
+      .normalize('NFKD').replace(/[̀-ͯ]/g, '')   // strip accents
+      .replace(/[!|]/g, 'i')
+      .replace(/[1]/g, 'i')
+      .replace(/[0]/g, 'o')
+      .replace(/[3]/g, 'e')
+      .replace(/[4@]/g, 'a')
+      .replace(/[$5]/g, 's')
+      .replace(/[7]/g, 't')
+      .replace(/[^a-z]/g, '');                              // drop everything except letters
+  }
+  function findBlockedTerm(name) {
+    const norm = normalizeForFilter(name);
+    if (!norm) return null;
+    for (const bad of BLOCKED_TERMS) {
+      if (norm.includes(bad)) return bad;
+    }
+    return null;
+  }
+
   function getUsername() {
     try { return localStorage.getItem(KEY_USER) || ''; } catch (_) { return ''; }
   }
+  // setUsername now returns:
+  //   true            — saved
+  //   'empty'         — blank input
+  //   'blocked:<word>' — caught by filter
   function setUsername(name) {
     name = (name || '').toString().trim().slice(0, 20);
-    if (!name) return false;
+    if (!name) return 'empty';
+    const bad = findBlockedTerm(name);
+    if (bad) return 'blocked:' + bad;
     try { localStorage.setItem(KEY_USER, name); } catch (_) {}
     return true;
   }
@@ -111,9 +158,19 @@
       function submit() {
         const name = input.value.trim();
         if (!name) { err.textContent = 'Name cannot be empty'; return; }
-        if (!setUsername(name)) { err.textContent = 'Could not save name'; return; }
-        document.body.removeChild(overlay);
-        resolve(name);
+        const result = setUsername(name);
+        if (result === true) {
+          document.body.removeChild(overlay);
+          resolve(name);
+          return;
+        }
+        if (result === 'empty') { err.textContent = 'Name cannot be empty'; return; }
+        if (typeof result === 'string' && result.startsWith('blocked:')) {
+          err.textContent = "That name isn't allowed — pick something else.";
+          input.focus(); input.select();
+          return;
+        }
+        err.textContent = 'Could not save name';
       }
       btn.addEventListener('click', submit);
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
