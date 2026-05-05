@@ -84,9 +84,13 @@
       ensure, setMuted, isMuted,
       place()    { tone(660, 0.10, 'triangle', { gain: 0.18 }); setTimeout(()=>tone(880,0.12,'triangle',{gain:0.14}),60); },
       cantPlace(){ tone(220, 0.18, 'sawtooth', { freqEnd: 110, gain: 0.16 }); },
-      cannon()   { tone(720, 0.05, 'square', { freqEnd: 1200, gain: 0.04 }); },
-      frost()    { tone(980, 0.08, 'sine',   { freqEnd: 1400, gain: 0.05 }); },
-      storm()    { tone(1100, 0.10, 'square', { freqEnd: 600, gain: 0.06 }); noise(0.06,{freq:1200,gain:0.04}); },
+      blaster()  { tone(720, 0.05, 'square', { freqEnd: 1200, gain: 0.04 }); },
+      cannon()   { tone(180, 0.10, 'sawtooth', { freqEnd: 60, gain: 0.10 }); noise(0.08,{freq:200,gain:0.08}); },
+      lightning(){ tone(1200, 0.08, 'square', { freqEnd: 500, gain: 0.05 }); noise(0.06,{freq:1200,gain:0.04}); },
+      pulse()    { tone(340, 0.16, 'sine', { freqEnd: 660, gain: 0.10 }); noise(0.10,{freq:600,gain:0.05}); },
+      ice()      { tone(980, 0.08, 'sine',   { freqEnd: 1400, gain: 0.05 }); },
+      plasma()   { tone(440, 0.12, 'sine',   { freqEnd: 880, gain: 0.08 }); noise(0.06,{freq:800,gain:0.04}); },
+      missile()  { noise(0.18,{freq:300,freqEnd:60,gain:0.10}); tone(440, 0.20, 'sawtooth',{freqEnd:120, gain:0.05}); },
       enemyDie() { noise(0.16, { freq: 240, freqEnd: 80, gain: 0.14 }); },
       reachGoal(){ tone(180, 0.20, 'sawtooth', { gain: 0.16 }); },
       waveStart(){ tone(440, 0.08, 'triangle', { gain: 0.16 }); setTimeout(()=>tone(660,0.10,'triangle',{gain:0.16}),80); },
@@ -98,24 +102,57 @@
   // ============================================================================
   // PAINTED ASSETS
   // ============================================================================
-  // Towers map to game's mechanic types: cannon=basic_blaster, frost=plasma, storm=lightning
-  // Some assets (enemies, projectiles, tiles, props) are still procedural for now.
   const ASSET_LIST = {
-    t_blaster:  'sprites/td/towers/basic_blaster.png',
-    t_plasma:   'sprites/td/towers/plasma_tower.png',
-    t_lightning:'sprites/td/towers/lightning_tower.png',
-    e_explosion:'sprites/td/effects/explosion.png',
-    e_ice:      'sprites/td/effects/ice_explosion.png',
-    e_slowfield:'sprites/td/effects/slow_field.png',
-    e_hit:      'sprites/td/effects/hit_effect.png',
-    e_crit:     'sprites/td/effects/crit_effect.png',
-    u_heart:    'sprites/td/ui/heart_life.png',
-    u_orb:      'sprites/td/ui/currency_orb.png',
-    u_gem:      'sprites/td/ui/gem.png',
-    u_wave:     'sprites/td/ui/wave_icon.png',
-    u_play:     'sprites/td/ui/play_button.png',
-    m_coin:     'sprites/td/misc/coin.png',
-    hero:       'sprites/td/hero/blue_spirit.png',
+    // Towers
+    t_blaster:   'sprites/td/towers/tower_basic_blaster.png',
+    t_cannon:    'sprites/td/towers/tower_cannon.png',
+    t_lightning: 'sprites/td/towers/tower_lightning.png',
+    t_pulse:     'sprites/td/towers/tower_aoe_pulse.png',
+    t_ice:       'sprites/td/towers/tower_ice.png',
+    t_plasma:    'sprites/td/towers/tower_plasma.png',
+    t_missile:   'sprites/td/towers/tower_missile.png',
+    t_aura:      'sprites/td/towers/tower_support_aura.png',
+    // Enemies
+    e_basic:     'sprites/td/enemies/enemy_basic.png',
+    e_fast:      'sprites/td/enemies/enemy_fast.png',
+    e_tank:      'sprites/td/enemies/enemy_tank.png',
+    e_flying:    'sprites/td/enemies/enemy_flying.png',
+    e_shielded:  'sprites/td/enemies/enemy_shielded.png',
+    e_healer:    'sprites/td/enemies/enemy_healer.png',
+    e_summoner:  'sprites/td/enemies/enemy_summoner.png',
+    e_boss:      'sprites/td/enemies/enemy_boss.png',
+    // Projectiles
+    p_shot:      'sprites/td/projectiles/proj_basic_shot.png',
+    p_laser:     'sprites/td/projectiles/proj_laser.png',
+    p_chain:     'sprites/td/projectiles/proj_chain_lightning.png',
+    p_missile:   'sprites/td/projectiles/proj_missile.png',
+    p_ice:       'sprites/td/projectiles/proj_ice_shard.png',
+    p_plasma:    'sprites/td/projectiles/proj_plasma_ball.png',
+    // Effects
+    fx_hit:      'sprites/td/effects/effect_hit.png',
+    fx_explosion:'sprites/td/effects/effect_explosion.png',
+    fx_ice:      'sprites/td/effects/effect_ice_explosion.png',
+    fx_slow:     'sprites/td/effects/effect_slow_field.png',
+    fx_crit:     'sprites/td/effects/effect_crit.png',
+    // Tiles & decor
+    tile_grass:  'sprites/td/tiles/tile_grass.png',
+    tile_path:   'sprites/td/tiles/tile_path.png',
+    tile_corner: 'sprites/td/tiles/tile_corner.png',
+    tile_cross:  'sprites/td/tiles/tile_crossroads.png',
+    tile_portal: 'sprites/td/tiles/tile_portal.png',
+    tile_base:   'sprites/td/tiles/tile_base.png',
+    tile_rock:   'sprites/td/tiles/tile_rock.png',
+    tile_tree:   'sprites/td/tiles/tile_tree.png',
+    tile_bush:   'sprites/td/tiles/tile_bush.png',
+    // UI
+    u_heart:     'sprites/td/ui/ui_heart.png',
+    u_orb:       'sprites/td/ui/ui_currency_orb.png',
+    u_gem:       'sprites/td/ui/ui_gem.png',
+    u_wave:      'sprites/td/ui/ui_wave_icon.png',
+    u_play:      'sprites/td/ui/ui_play.png',
+    u_pause:     'sprites/td/ui/ui_pause.png',
+    u_speed:     'sprites/td/ui/ui_speed_up.png',
+    u_locked:    'sprites/td/ui/ui_locked.png',
   };
   const ASSETS = {};
   let assetsLoaded = 0; const assetsTotal = Object.keys(ASSET_LIST).length;
@@ -132,20 +169,36 @@
   // ============================================================================
   // GRID
   // ============================================================================
-  const TILE = 45;                               // px per tile
-  const COLS = Math.floor(W / TILE);            // 12
-  const ROWS = Math.floor((H - 200) / TILE);    // ~16 (leaves room for HUD)
+  const TILE = 45;
+  const COLS = Math.floor(W / TILE);              // 12
+  const ROWS = Math.floor((H - 220) / TILE);      // ~16
   const GRID_X = Math.floor((W - COLS * TILE) / 2);
-  const GRID_Y = 100; // top HUD area is 0..100
+  const GRID_Y = 110;
 
-  // Tile types: 0=empty, 1=tower, 2=blocked (decoration), 3=spawn, 4=goal
+  // 0=empty (grass), 1=tower, 2=blocked decoration, 3=spawn, 4=goal
   const grid = [];
-  for (let r = 0; r < ROWS; r++) { grid.push(new Array(COLS).fill(0)); }
-  // Spawn at top center, goal at bottom center
+  for (let r = 0; r < ROWS; r++) grid.push(new Array(COLS).fill(0));
   const SPAWN = { c: Math.floor(COLS / 2), r: 0 };
   const GOAL  = { c: Math.floor(COLS / 2), r: ROWS - 1 };
   grid[SPAWN.r][SPAWN.c] = 3;
   grid[GOAL.r][GOAL.c]   = 4;
+
+  // Deterministic decoration map for empty tiles (rocks/trees/bushes)
+  const DECOR = []; // { c, r, kind, scale }
+  function buildDecor() {
+    DECOR.length = 0;
+    // simple deterministic noise
+    function h(c, r) { return ((c * 374761393 + r * 668265263) ^ ((c+r)*2246822519)) >>> 0; }
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if ((c === SPAWN.c && r === SPAWN.r) || (c === GOAL.c && r === GOAL.r)) continue;
+      const x = h(c, r) % 100;
+      // ~15% of tiles get decoration; pick which kind
+      if (x < 4)       DECOR.push({ c, r, kind: 'rock', scale: 0.7 + (h(c+1, r) % 30) / 100 });
+      else if (x < 9)  DECOR.push({ c, r, kind: 'tree', scale: 0.85 + (h(c, r+1) % 20) / 100 });
+      else if (x < 13) DECOR.push({ c, r, kind: 'bush', scale: 0.7 + (h(c+2, r+2) % 30) / 100 });
+    }
+  }
+  buildDecor();
 
   function tileToWorld(c, r) { return { x: GRID_X + c * TILE, y: GRID_Y + r * TILE }; }
   function tileCenter(c, r) { return { x: GRID_X + c * TILE + TILE/2, y: GRID_Y + r * TILE + TILE/2 }; }
@@ -165,7 +218,6 @@
   // A* PATHFINDING
   // ============================================================================
   function findPath(startC, startR, goalC, goalR, blockExtra) {
-    // blockExtra: optional {c, r} hypothetical blocked tile (for placement validation)
     const closed = new Uint8Array(COLS * ROWS);
     const gScore = new Float32Array(COLS * ROWS); gScore.fill(Infinity);
     const cameFrom = new Int32Array(COLS * ROWS); cameFrom.fill(-1);
@@ -175,19 +227,17 @@
       if (blockExtra && blockExtra.c === c && blockExtra.r === r) return true;
       return false;
     }
-    const open = []; // simple sorted insert (small grid; fine)
+    const open = [];
     const startKey = key(startC, startR);
     gScore[startKey] = 0;
     open.push({ c: startC, r: startR, f: Math.abs(startC - goalC) + Math.abs(startR - goalR) });
     while (open.length) {
-      // pop lowest f
       open.sort((a, b) => a.f - b.f);
       const cur = open.shift();
       const ck = key(cur.c, cur.r);
       if (closed[ck]) continue;
       closed[ck] = 1;
       if (cur.c === goalC && cur.r === goalR) {
-        // reconstruct
         const path = [{ c: cur.c, r: cur.r }];
         let kk = ck;
         while (cameFrom[kk] !== -1) {
@@ -215,54 +265,72 @@
   }
 
   let currentPath = null;
-  function recomputePath() {
-    currentPath = findPath(SPAWN.c, SPAWN.r, GOAL.c, GOAL.r);
-  }
+  function recomputePath() { currentPath = findPath(SPAWN.c, SPAWN.r, GOAL.c, GOAL.r); }
   recomputePath();
-  if (!currentPath) { console.error('No initial path!'); }
+
+  // Set of tile keys that are part of the current path (for tile painting)
+  let pathSet = new Set();
+  function rebuildPathSet() {
+    pathSet = new Set();
+    if (!currentPath) return;
+    for (const p of currentPath) pathSet.add(p.r * COLS + p.c);
+  }
+  rebuildPathSet();
 
   // ============================================================================
   // GAME STATE
   // ============================================================================
-  let gold = 220;
+  let gold = 250;
   let lives = 20;
   let waveIdx = 0;
   let waveActive = false;
   let waveTimer = 0;
-  let spawnQueue = [];   // remaining {type, delay}
-  let timeBetweenSpawns = 0;
-  let gameOver = false;  // 'win' or 'lose' or false
-  let selectedType = 'cannon';     // current tower in palette
-  let hover = null;                // {c, r}
+  let spawnQueue = [];
+  let gameOver = false;
+  let selectedType = 'blaster';
+  let hover = null;
   let particles = [];
   let projectiles = [];
+  const fxBlasts = [];
+  function fxBlast(x, y, sprite, size = 70) { fxBlasts.push({ x, y, t: 0, life: 22, sprite, size }); }
 
+  // ----- 8 Tower types -----
   const TOWER_TYPES = {
-    cannon: { name: 'Cannon Bloo', cost: 50,  range: TILE * 2.4, fireRate: 22, damage: 4,  color: '#ff8a3a', kind: 'shot'   },
-    frost:  { name: 'Frost Bloo',  cost: 75,  range: TILE * 2.0, fireRate: 32, damage: 1,  color: '#9cd6ff', kind: 'slow'   },
-    storm:  { name: 'Storm Bloo',  cost: 120, range: TILE * 2.6, fireRate: 36, damage: 6,  color: '#c46cff', kind: 'aoe'    },
+    blaster:  { name: 'Blaster',  cost: 50,  range: TILE * 2.4, fireRate: 18, damage: 3,  color: '#9cd6ff', kind: 'shot',     proj: 'p_shot',    sound: 'blaster',   sprite: 't_blaster' },
+    cannon:   { name: 'Cannon',   cost: 90,  range: TILE * 2.8, fireRate: 50, damage: 14, color: '#ff8a3a', kind: 'shot',     proj: 'p_shot',    sound: 'cannon',    sprite: 't_cannon' },
+    lightning:{ name: 'Lightning',cost: 140, range: TILE * 2.6, fireRate: 38, damage: 5,  color: '#9cd6ff', kind: 'chain',    proj: 'p_chain',   sound: 'lightning', sprite: 't_lightning' },
+    pulse:    { name: 'Pulse',    cost: 160, range: TILE * 1.8, fireRate: 60, damage: 6,  color: '#ff5cb8', kind: 'aoe_pulse',proj: null,        sound: 'pulse',     sprite: 't_pulse' },
+    ice:      { name: 'Ice',      cost: 75,  range: TILE * 2.0, fireRate: 32, damage: 1,  color: '#9cd6ff', kind: 'slow',     proj: 'p_ice',     sound: 'ice',       sprite: 't_ice' },
+    plasma:   { name: 'Plasma',   cost: 180, range: TILE * 2.4, fireRate: 45, damage: 10, color: '#ff5cb8', kind: 'splash',   proj: 'p_plasma',  sound: 'plasma',    sprite: 't_plasma',  splashRadius: TILE * 1.0 },
+    missile:  { name: 'Missile',  cost: 200, range: TILE * 4.0, fireRate: 70, damage: 25, color: '#ff5c8a', kind: 'homing',   proj: 'p_missile', sound: 'missile',   sprite: 't_missile' },
+    aura:     { name: 'Aura',     cost: 250, range: TILE * 2.0, fireRate: 0,  damage: 0,  color: '#c46cff', kind: 'aura',     proj: null,        sound: 'place',     sprite: 't_aura' },
   };
 
+  // ----- 8 Enemy types -----
   const ENEMY_TYPES = {
-    grunt: { hp: 12, speed: 0.85, gold: 6,  color: '#3a0a55', radius: 14, name: 'Grunt' },
-    scout: { hp: 6,  speed: 1.6,  gold: 4,  color: '#4a1080', radius: 11, name: 'Scout' },
-    brute: { hp: 50, speed: 0.45, gold: 18, color: '#1a0030', radius: 18, name: 'Brute' },
-    boss:  { hp: 280, speed: 0.55, gold: 100, color: '#0a0010', radius: 26, name: 'Boss', isBoss: true },
+    basic:    { hp: 12,  speed: 0.85, gold: 6,  sprite: 'e_basic',    radius: 16, name: 'Basic' },
+    fast:     { hp: 6,   speed: 1.7,  gold: 5,  sprite: 'e_fast',     radius: 13, name: 'Fast' },
+    tank:     { hp: 50,  speed: 0.5,  gold: 18, sprite: 'e_tank',     radius: 20, name: 'Tank' },
+    flying:   { hp: 18,  speed: 1.0,  gold: 10, sprite: 'e_flying',   radius: 16, name: 'Flying',   resist: 0.5 },
+    shielded: { hp: 25,  speed: 0.75, gold: 14, sprite: 'e_shielded', radius: 17, name: 'Shielded', armor: 1 },
+    healer:   { hp: 18,  speed: 0.7,  gold: 14, sprite: 'e_healer',   radius: 16, name: 'Healer',   healRate: 60, healAmount: 1, healRadius: TILE * 1.6 },
+    summoner: { hp: 30,  speed: 0.6,  gold: 20, sprite: 'e_summoner', radius: 18, name: 'Summoner', summonsOnDeath: 2 },
+    boss:     { hp: 350, speed: 0.45, gold: 120, sprite: 'e_boss',    radius: 28, name: 'Boss', isBoss: true, armor: 2 },
   };
 
-  const towers = [];   // {c, r, type, cooldown, target}
-  const enemies = [];  // {x, y, type, hp, hpMax, slowT, ...}
+  const towers = [];
+  const enemies = [];
 
   // 8 waves of escalating difficulty
   const WAVES = [
-    { spawns: [['grunt', 5]] },
-    { spawns: [['grunt', 8]] },
-    { spawns: [['grunt', 5], ['scout', 4]] },
-    { spawns: [['scout', 12]] },
-    { spawns: [['grunt', 8], ['brute', 2]] },
-    { spawns: [['scout', 8], ['grunt', 6], ['brute', 2]] },
-    { spawns: [['brute', 5], ['scout', 8]] },
-    { spawns: [['grunt', 10], ['scout', 6], ['brute', 3], ['boss', 1]] },
+    { spawns: [['basic', 6]] },
+    { spawns: [['basic', 8], ['fast', 4]] },
+    { spawns: [['fast', 8], ['shielded', 3]] },
+    { spawns: [['basic', 6], ['tank', 3]] },
+    { spawns: [['fast', 6], ['shielded', 4], ['healer', 2]] },
+    { spawns: [['healer', 3], ['fast', 8], ['summoner', 2]] },
+    { spawns: [['summoner', 3], ['shielded', 5], ['tank', 3], ['flying', 5]] },
+    { spawns: [['fast', 6], ['shielded', 4], ['summoner', 3], ['flying', 4], ['boss', 1]] },
   ];
 
   function startWave() {
@@ -270,8 +338,9 @@
     Audio.waveStart();
     const w = WAVES[waveIdx];
     spawnQueue = [];
+    let delay = 30;
     for (const [type, count] of w.spawns) {
-      for (let i = 0; i < count; i++) spawnQueue.push({ type, delay: 30 + spawnQueue.length * 20 });
+      for (let i = 0; i < count; i++) { spawnQueue.push({ type, delay }); delay += 22; }
     }
     waveActive = true;
     waveTimer = 0;
@@ -282,25 +351,46 @@
     if (!def) return;
     const center = tileCenter(SPAWN.c, SPAWN.r);
     enemies.push({
-      x: center.x, y: center.y,
+      x: center.x, y: center.y - 6,
       type, hp: def.hp, hpMax: def.hp,
       speed: def.speed, slowT: 0,
-      pathIdx: 1,        // current waypoint index in currentPath
+      pathIdx: 1,
       isBoss: !!def.isBoss,
+      armor: def.armor || 0,
+      resist: def.resist || 0,
+      healT: def.healRate ? Math.floor(Math.random()*60) : 0,
+      hitFlash: 0,
     });
   }
 
-  function damageEnemy(e, dmg) {
-    e.hp -= dmg;
+  function damageEnemy(e, dmg, isAoe) {
+    let d = dmg;
+    if (e.armor && d > e.armor) d -= e.armor;
+    else if (e.armor) d = Math.max(1, Math.floor(d * 0.5));
+    if (e.resist) d = Math.max(1, d * (1 - e.resist));
+    e.hp -= d;
+    e.hitFlash = 6;
     if (e.hp <= 0) {
       gold += ENEMY_TYPES[e.type].gold;
       Audio.enemyDie();
       burst(e.x, e.y, '#a020a0', 14);
-      fxBlast(e.x, e.y, 'e_explosion', e.isBoss ? 110 : 70);
+      fxBlast(e.x, e.y, 'fx_explosion', e.isBoss ? 130 : 80);
+      // Summoner spawns minions on death
+      const def = ENEMY_TYPES[e.type];
+      if (def.summonsOnDeath) {
+        for (let i = 0; i < def.summonsOnDeath; i++) {
+          const m = { ...e };
+          spawnEnemy('fast');
+          // place near death location
+          const last = enemies[enemies.length - 1];
+          last.x = e.x + (Math.random() - 0.5) * 20;
+          last.y = e.y + (Math.random() - 0.5) * 20;
+          last.pathIdx = e.pathIdx;
+        }
+      }
       return true;
     } else {
-      // Small hit flash on partial damage
-      fxBlast(e.x, e.y, 'e_hit', 40);
+      fxBlast(e.x, e.y, 'fx_hit', 36);
     }
     return false;
   }
@@ -308,76 +398,58 @@
   function burst(x, y, color, n = 8) {
     for (let i = 0; i < n; i++) particles.push({ x, y, vx:(Math.random()-.5)*4, vy:(Math.random()-.5)*4, life: 26, color });
   }
-  // Sprite-based effect popups (painted explosion/ice/hit/crit) — short-lived overlay
-  const fxBlasts = []; // { x, y, t, life, sprite, size }
-  function fxBlast(x, y, sprite, size = 70) {
-    fxBlasts.push({ x, y, t: 0, life: 22, sprite, size });
-  }
 
   // ============================================================================
   // INPUT
   // ============================================================================
-  let mouse = { x: 0, y: 0, down: false };
   function pointerXY(e) {
     const rect = canvas.getBoundingClientRect();
     const p = e.touches ? e.touches[0] : e;
     return { x: (p.clientX - rect.left) * (W / rect.width), y: (p.clientY - rect.top) * (H / rect.height) };
   }
-  canvas.addEventListener('pointerdown', (e) => {
-    Audio.ensure();
-    const p = pointerXY(e);
-    mouse = { ...p, down: true };
-    handleClick(p.x, p.y);
-    e.preventDefault();
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    const p = pointerXY(e);
-    mouse.x = p.x; mouse.y = p.y;
-    const t = worldToTile(p.x, p.y);
-    hover = t;
-    e.preventDefault();
-  });
-  canvas.addEventListener('pointerup', (e) => { mouse.down = false; e.preventDefault(); });
-  canvas.addEventListener('pointercancel', () => { mouse.down = false; });
+  canvas.addEventListener('pointerdown', (e) => { Audio.ensure(); const p = pointerXY(e); handleClick(p.x, p.y); e.preventDefault(); });
+  canvas.addEventListener('pointermove', (e) => { const p = pointerXY(e); hover = worldToTile(p.x, p.y); e.preventDefault(); });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // Mute button
   const muteBtn = document.getElementById('btn-mute');
   function refreshMute(){ muteBtn.textContent = Audio.isMuted() ? '🔇' : '🔊'; }
   refreshMute();
   muteBtn.addEventListener('click', () => { Audio.setMuted(!Audio.isMuted()); refreshMute(); });
   addEventListener('keydown', (e) => { if (e.code === 'KeyM') { Audio.setMuted(!Audio.isMuted()); refreshMute(); } });
 
-  // ============================================================================
-  // CLICK HANDLER (palette + tile + start-wave button)
-  // ============================================================================
+  // Palette layout: 8 buttons in 2 rows × 4 cols
+  function paletteRect() {
+    const palY = H - 130, palH = 116;
+    return { x: 14, y: palY, w: W - 28, h: palH };
+  }
+  function paletteButtons() {
+    const r = paletteRect();
+    const types = Object.keys(TOWER_TYPES);
+    const cols = 4, rows = 2;
+    const cellW = (r.w - 14) / cols, cellH = (r.h - 14) / rows;
+    const out = [];
+    for (let i = 0; i < types.length; i++) {
+      const col = i % cols, row = Math.floor(i / cols);
+      out.push({ type: types[i], x: r.x + 7 + col * cellW, y: r.y + 7 + row * cellH, w: cellW - 4, h: cellH - 4 });
+    }
+    return out;
+  }
+  function startBtnRect() { return { x: W - 130, y: 22, w: 120, h: 60 }; }
+
   function handleClick(x, y) {
-    if (gameOver) {
-      // Click anywhere to restart
-      restart();
-      return;
-    }
-    // Top HUD: START WAVE button (right side of top bar)
-    if (y < 90 && x > W - 140 && x < W - 20 && !waveActive) {
-      startWave();
-      return;
-    }
-    // Bottom palette buttons
-    const palY = H - 110;
-    if (y >= palY && y <= palY + 90) {
-      const types = Object.keys(TOWER_TYPES);
-      const btnW = 100, gap = 12;
-      const totalW = types.length * btnW + (types.length - 1) * gap;
-      const startX = (W - totalW) / 2;
-      for (let i = 0; i < types.length; i++) {
-        const bx = startX + i * (btnW + gap);
-        if (x >= bx && x <= bx + btnW) {
-          selectedType = types[i];
-          return;
-        }
+    if (gameOver) { restart(); return; }
+    // Start wave button
+    const sb = startBtnRect();
+    if (!waveActive && x >= sb.x && x <= sb.x + sb.w && y >= sb.y && y <= sb.y + sb.h) { startWave(); return; }
+    // Palette
+    const btns = paletteButtons();
+    for (const b of btns) {
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        selectedType = b.type;
+        return;
       }
     }
-    // Otherwise: try to place a tower on the grid
+    // Place tower
     const t = worldToTile(x, y);
     if (!t) return;
     tryPlaceTower(t.c, t.r);
@@ -386,20 +458,16 @@
   function tryPlaceTower(c, r) {
     const def = TOWER_TYPES[selectedType];
     if (!def) return;
-    // Tile must be empty
     if (grid[r][c] !== 0) { Audio.cantPlace(); return; }
-    // Must have gold
     if (gold < def.cost) { Audio.cantPlace(); return; }
-    // Path must still exist after placement
     const testPath = findPath(SPAWN.c, SPAWN.r, GOAL.c, GOAL.r, { c, r });
     if (!testPath) { Audio.cantPlace(); return; }
-    // Place
     grid[r][c] = 1;
-    towers.push({ c, r, type: selectedType, cooldown: 0, target: null, fireFlash: 0 });
+    towers.push({ c, r, type: selectedType, cooldown: 0, fireFlash: 0 });
     gold -= def.cost;
     Audio.place();
     currentPath = testPath;
-    // Recompute path index for in-flight enemies (snap to nearest path waypoint ahead)
+    rebuildPathSet();
     for (const e of enemies) {
       let bestIdx = 1, bestDist = Infinity;
       for (let i = 1; i < currentPath.length; i++) {
@@ -415,10 +483,10 @@
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       if (grid[r][c] === 1) grid[r][c] = 0;
     }
-    towers.length = 0; enemies.length = 0; projectiles.length = 0; particles.length = 0;
-    gold = 220; lives = 20; waveIdx = 0; waveActive = false; spawnQueue.length = 0;
-    gameOver = false; selectedType = 'cannon';
-    recomputePath();
+    towers.length = 0; enemies.length = 0; projectiles.length = 0; particles.length = 0; fxBlasts.length = 0;
+    gold = 250; lives = 20; waveIdx = 0; waveActive = false; spawnQueue.length = 0;
+    gameOver = false; selectedType = 'blaster';
+    recomputePath(); rebuildPathSet();
   }
 
   // ============================================================================
@@ -429,25 +497,38 @@
     animT++;
     if (gameOver) return;
 
-    // Wave spawning
     if (waveActive) {
       waveTimer++;
-      while (spawnQueue.length && spawnQueue[0].delay <= waveTimer) {
-        spawnEnemy(spawnQueue.shift().type);
-      }
-      // Wave ends when queue empty AND no enemies left
+      while (spawnQueue.length && spawnQueue[0].delay <= waveTimer) spawnEnemy(spawnQueue.shift().type);
       if (spawnQueue.length === 0 && enemies.length === 0) {
         waveActive = false;
         waveIdx++;
-        gold += 30; // wave completion bonus
-        if (waveIdx >= WAVES.length) {
-          gameOver = 'win';
-          Audio.win();
-        }
+        gold += 40;
+        if (waveIdx >= WAVES.length) { gameOver = 'win'; Audio.win(); }
       }
     }
 
-    // Move enemies along path
+    // Healers regen nearby enemies
+    for (const e of enemies) {
+      const def = ENEMY_TYPES[e.type];
+      if (def.healRate) {
+        e.healT++;
+        if (e.healT >= def.healRate) {
+          e.healT = 0;
+          for (const o of enemies) {
+            if (o === e || o.hp >= o.hpMax) continue;
+            const dd = (o.x - e.x) ** 2 + (o.y - e.y) ** 2;
+            if (dd < def.healRadius * def.healRadius) {
+              o.hp = Math.min(o.hpMax, o.hp + def.healAmount);
+              fxBlast(o.x, o.y, 'fx_crit', 32);
+            }
+          }
+        }
+      }
+      if (e.hitFlash > 0) e.hitFlash--;
+    }
+
+    // Move enemies
     for (const e of enemies) {
       const def = ENEMY_TYPES[e.type];
       if (e.pathIdx >= currentPath.length) continue;
@@ -458,10 +539,9 @@
       if (e.slowT > 0) e.slowT--;
       const sp = e.speed * slowFactor;
       if (d < sp) {
-        e.x = target.x; e.y = target.y;
+        e.x = target.x; e.y = target.y - 6;
         e.pathIdx++;
         if (e.pathIdx >= currentPath.length) {
-          // reached goal
           lives -= e.isBoss ? 5 : 1;
           Audio.reachGoal();
           e.dead = true;
@@ -478,9 +558,42 @@
     for (const t of towers) {
       const def = TOWER_TYPES[t.type];
       const tc = tileCenter(t.c, t.r);
+      // Aura tower buffs nearby tower fire rates
+      if (def.kind === 'aura') {
+        // Apply buff each frame (just sets a flag — we read it during fire-rate calc)
+        for (const ot of towers) {
+          if (ot === t) continue;
+          const dd = (tileCenter(ot.c, ot.r).x - tc.x) ** 2 + (tileCenter(ot.c, ot.r).y - tc.y) ** 2;
+          ot.auraBuff = (dd < def.range * def.range) ? 1 : Math.max(0, (ot.auraBuff || 0) - 0.05);
+        }
+        continue;
+      }
       t.cooldown--;
       if (t.fireFlash > 0) t.fireFlash--;
       if (t.cooldown > 0) continue;
+
+      // AOE pulse: damage all enemies in range periodically
+      if (def.kind === 'aoe_pulse') {
+        let hitAny = false;
+        for (const e of enemies) {
+          const dd = (e.x - tc.x) ** 2 + (e.y - tc.y) ** 2;
+          if (dd < def.range * def.range) {
+            damageEnemy(e, def.damage);
+            burst(e.x, e.y, def.color, 4);
+            hitAny = true;
+          }
+        }
+        if (hitAny) {
+          t.fireFlash = 10;
+          fxBlast(tc.x, tc.y, 'fx_explosion', def.range * 2);
+          Audio[def.sound]();
+          // Apply buffed cooldown
+          const buff = (t.auraBuff || 0);
+          t.cooldown = Math.floor(def.fireRate * (1 - 0.30 * buff));
+        }
+        continue;
+      }
+
       // Find target — closest enemy in range
       let best = null, bestD = def.range * def.range;
       for (const e of enemies) {
@@ -488,57 +601,92 @@
         if (dd < bestD) { bestD = dd; best = e; }
       }
       if (!best) continue;
-      // Fire
-      t.cooldown = def.fireRate;
       t.fireFlash = 8;
+      const buff = (t.auraBuff || 0);
+      t.cooldown = Math.floor(def.fireRate * (1 - 0.30 * buff));
+      Audio[def.sound]();
+
       if (def.kind === 'shot') {
-        projectiles.push({ x: tc.x, y: tc.y, target: best, damage: def.damage, color: def.color, type: 'shot' });
-        Audio.cannon();
+        projectiles.push({ x: tc.x, y: tc.y, target: best, damage: def.damage, sprite: def.proj, color: def.color, type: 'shot', speed: 9 });
       } else if (def.kind === 'slow') {
-        // Frost: damage + slow on target and small AoE
+        // Frost AoE: slow all + small dmg
         for (const e of enemies) {
           const dd = (e.x - tc.x) ** 2 + (e.y - tc.y) ** 2;
           if (dd < def.range * def.range) {
             e.slowT = Math.max(e.slowT, 60);
             damageEnemy(e, def.damage);
             burst(e.x, e.y, def.color, 4);
+            fxBlast(e.x, e.y, 'fx_ice', 36);
           }
         }
-        Audio.frost();
-      } else if (def.kind === 'aoe') {
-        // Storm: chain lightning to up to 3 nearest in range
+      } else if (def.kind === 'chain') {
+        // Pick up to 3 nearest, chain lightning beams
         const inRange = enemies
           .map(e => ({ e, d: (e.x - tc.x) ** 2 + (e.y - tc.y) ** 2 }))
           .filter(x => x.d < def.range * def.range)
           .sort((a, b) => a.d - b.d)
           .slice(0, 3);
+        let prev = { x: tc.x, y: tc.y };
         for (const { e } of inRange) {
           damageEnemy(e, def.damage);
-          burst(e.x, e.y, def.color, 8);
-          projectiles.push({ x: tc.x, y: tc.y, ex: e.x, ey: e.y, damage: 0, color: def.color, type: 'beam', life: 8 });
+          burst(e.x, e.y, def.color, 6);
+          projectiles.push({ x: prev.x, y: prev.y, ex: e.x, ey: e.y, color: def.color, type: 'beam', life: 10, sprite: def.proj });
+          prev = { x: e.x, y: e.y };
         }
-        Audio.storm();
+      } else if (def.kind === 'splash') {
+        projectiles.push({ x: tc.x, y: tc.y, target: best, damage: def.damage, sprite: def.proj, color: def.color, type: 'splash', speed: 7, splashRadius: def.splashRadius });
+      } else if (def.kind === 'homing') {
+        projectiles.push({ x: tc.x, y: tc.y, vx: 0, vy: -1, target: best, damage: def.damage, sprite: def.proj, color: def.color, type: 'homing', speed: 5 });
       }
     }
 
     // Move projectiles
     for (const p of projectiles) {
       if (p.type === 'beam') { p.life--; continue; }
-      // shot: travel toward target
-      const tx = p.target ? p.target.x : p.tx;
-      const ty = p.target ? p.target.y : p.ty;
-      const dx = tx - p.x, dy = ty - p.y;
-      const d = Math.hypot(dx, dy);
-      const sp = 9;
-      if (d < sp) {
+      if (p.type === 'homing') {
+        // Steer toward target
         if (p.target && p.target.hp > 0) {
-          damageEnemy(p.target, p.damage);
-          burst(tx, ty, p.color, 6);
+          const dx = p.target.x - p.x, dy = p.target.y - p.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 0) {
+            const tvx = p.speed * dx / d, tvy = p.speed * dy / d;
+            p.vx += (tvx - p.vx) * 0.15;
+            p.vy += (tvy - p.vy) * 0.15;
+          }
+        } else if (!p.target || p.target.hp <= 0) { p.dead = true; continue; }
+        p.x += p.vx; p.y += p.vy;
+        if (p.target && Math.hypot(p.target.x - p.x, p.target.y - p.y) < p.target ? 12 : 10) {
+          if (p.target && p.target.hp > 0) {
+            damageEnemy(p.target, p.damage);
+            fxBlast(p.x, p.y, 'fx_explosion', 60);
+          }
+          p.dead = true;
         }
-        p.dead = true;
       } else {
-        p.x += sp * dx / d;
-        p.y += sp * dy / d;
+        // shot or splash: linear
+        const tx = p.target ? p.target.x : p.tx;
+        const ty = p.target ? p.target.y : p.ty;
+        const dx = tx - p.x, dy = ty - p.y;
+        const d = Math.hypot(dx, dy);
+        const sp = p.speed || 9;
+        if (d < sp) {
+          if (p.target && p.target.hp > 0) {
+            damageEnemy(p.target, p.damage);
+            // Splash damage to nearby
+            if (p.type === 'splash' && p.splashRadius) {
+              for (const e of enemies) {
+                if (e === p.target) continue;
+                const dd = (e.x - tx) ** 2 + (e.y - ty) ** 2;
+                if (dd < p.splashRadius * p.splashRadius) damageEnemy(e, Math.ceil(p.damage * 0.5), true);
+              }
+              fxBlast(tx, ty, 'fx_explosion', 70);
+            }
+          }
+          p.dead = true;
+        } else {
+          p.x += sp * dx / d;
+          p.y += sp * dy / d;
+        }
       }
     }
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -546,105 +694,92 @@
       if (p.dead || (p.type === 'beam' && p.life <= 0)) projectiles.splice(i, 1);
     }
 
-    // Particles
     for (const pa of particles) { pa.x += pa.vx; pa.y += pa.vy; pa.vy += 0.18; pa.life--; }
     for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
-    // Painted FX blasts
     for (const f of fxBlasts) f.t++;
     for (let i = fxBlasts.length - 1; i >= 0; i--) if (fxBlasts[i].t > fxBlasts[i].life) fxBlasts.splice(i, 1);
-  }
-
-  function drawFxBlasts() {
-    for (const f of fxBlasts) {
-      const img = ASSETS[f.sprite];
-      if (!img || !img.width || img._failed) continue;
-      const t = f.t / f.life;
-      const scale = 0.7 + 0.6 * t;          // expand
-      const alpha = Math.max(0, 1 - t);     // fade
-      const w = f.size * scale;
-      const aspect = img.width / img.height;
-      const h = w / aspect;
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(img, f.x - w/2, f.y - h/2, w, h);
-      ctx.globalAlpha = 1;
-    }
   }
 
   // ============================================================================
   // DRAW
   // ============================================================================
   function drawBg() {
-    // Sky gradient
+    ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, '#1a0e3a');
     g.addColorStop(0.6, '#0f0820');
     g.addColorStop(1, '#0a0716');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // soft magenta haze
-    const r = ctx.createRadialGradient(W * 0.5, GRID_Y - 60, 20, W * 0.5, GRID_Y - 60, 280);
-    r.addColorStop(0, 'rgba(255, 80, 180, 0.20)');
-    r.addColorStop(1, 'rgba(255, 80, 180, 0)');
-    ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
   }
 
-  function drawGrid() {
-    // Grid background panel (slightly inset)
-    ctx.fillStyle = 'rgba(20, 8, 40, 0.55)';
-    ctx.fillRect(GRID_X - 4, GRID_Y - 4, COLS * TILE + 8, ROWS * TILE + 8);
-    ctx.strokeStyle = 'rgba(255, 92, 184, 0.3)'; ctx.lineWidth = 1;
-    ctx.strokeRect(GRID_X - 4, GRID_Y - 4, COLS * TILE + 8, ROWS * TILE + 8);
-
-    // Tiles
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+  function drawTilesAndDecor() {
+    // Painted grass tile across the whole grid — overdraw with path tiles where needed
+    if (ok('tile_grass')) {
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
         const x = GRID_X + c * TILE, y = GRID_Y + r * TILE;
-        // alternating cell tint
-        if ((c + r) % 2 === 0) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
-          ctx.fillRect(x, y, TILE, TILE);
-        }
-        // Spawn / Goal
-        if (grid[r][c] === 3) {
-          ctx.fillStyle = 'rgba(255, 92, 184, 0.18)';
-          ctx.fillRect(x, y, TILE, TILE);
-        } else if (grid[r][c] === 4) {
-          ctx.fillStyle = 'rgba(156, 214, 255, 0.18)';
-          ctx.fillRect(x, y, TILE, TILE);
-        }
+        ctx.drawImage(ASSETS.tile_grass, x, y, TILE, TILE);
+      }
+    } else {
+      // fallback flat fill
+      ctx.fillStyle = '#1a2030'; ctx.fillRect(GRID_X, GRID_Y, COLS * TILE, ROWS * TILE);
+    }
+    // Paint path tiles
+    if (ok('tile_path') && currentPath) {
+      for (const p of currentPath) {
+        const x = GRID_X + p.c * TILE, y = GRID_Y + p.r * TILE;
+        ctx.drawImage(ASSETS.tile_path, x, y, TILE, TILE);
       }
     }
-    // Grid lines (subtle)
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 1;
-    for (let c = 0; c <= COLS; c++) {
-      ctx.beginPath(); ctx.moveTo(GRID_X + c * TILE, GRID_Y); ctx.lineTo(GRID_X + c * TILE, GRID_Y + ROWS * TILE); ctx.stroke();
-    }
-    for (let r = 0; r <= ROWS; r++) {
-      ctx.beginPath(); ctx.moveTo(GRID_X, GRID_Y + r * TILE); ctx.lineTo(GRID_X + COLS * TILE, GRID_Y + r * TILE); ctx.stroke();
+    // Decoration sprites scattered on grass tiles (skip tower tiles & path tiles)
+    for (const d of DECOR) {
+      if (grid[d.r][d.c] === 1) continue; // hide decor on tower tiles
+      if (pathSet.has(d.r * COLS + d.c)) continue; // hide decor on path tiles
+      const key = d.kind === 'rock' ? 'tile_rock' : (d.kind === 'tree' ? 'tile_tree' : 'tile_bush');
+      if (!ok(key)) continue;
+      const img = ASSETS[key];
+      const aspect = img.width / img.height;
+      const h = TILE * d.scale;
+      const w = h * aspect;
+      const cx = GRID_X + d.c * TILE + TILE/2;
+      const by = GRID_Y + d.r * TILE + TILE - 4;
+      ctx.drawImage(img, cx - w/2, by - h, w, h);
     }
   }
 
-  function drawPath() {
-    if (!currentPath || currentPath.length < 2) return;
-    ctx.strokeStyle = 'rgba(255, 92, 184, 0.45)';
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 10;
-    ctx.beginPath();
-    const first = tileCenter(currentPath[0].c, currentPath[0].r);
-    ctx.moveTo(first.x, first.y);
-    for (let i = 1; i < currentPath.length; i++) {
-      const p = tileCenter(currentPath[i].c, currentPath[i].r);
-      ctx.lineTo(p.x, p.y);
+  function drawSpawnGoal() {
+    const sp = tileToWorld(SPAWN.c, SPAWN.r);
+    const gp = tileToWorld(GOAL.c, GOAL.r);
+    if (ok('tile_portal')) {
+      const img = ASSETS.tile_portal;
+      const ar = img.width / img.height;
+      const h = TILE * 1.2, w = h * ar;
+      const x = sp.x + TILE/2 - w/2, y = sp.y + TILE - h - 2;
+      // Pulse glow under it
+      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 14 + Math.sin(animT * 0.1) * 4;
+      ctx.drawImage(img, x, y, w, h);
+      ctx.shadowBlur = 0;
     }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    // Animated dashes flowing along the path
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    if (ok('tile_base')) {
+      const img = ASSETS.tile_base;
+      const ar = img.width / img.height;
+      const h = TILE * 1.2, w = h * ar;
+      const x = gp.x + TILE/2 - w/2, y = gp.y + TILE - h - 2;
+      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 14;
+      ctx.drawImage(img, x, y, w, h);
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function drawPathTrail() {
+    // Light pink trail line on top of path tiles to show direction (animated dashes)
+    if (!currentPath || currentPath.length < 2) return;
+    ctx.strokeStyle = 'rgba(255, 92, 184, 0.35)';
     ctx.lineWidth = 2;
-    ctx.setLineDash([8, 14]);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.setLineDash([6, 12]);
     ctx.lineDashOffset = -animT * 0.8;
     ctx.beginPath();
+    const first = tileCenter(currentPath[0].c, currentPath[0].r);
     ctx.moveTo(first.x, first.y);
     for (let i = 1; i < currentPath.length; i++) {
       const p = tileCenter(currentPath[i].c, currentPath[i].r);
@@ -654,121 +789,82 @@
     ctx.setLineDash([]);
   }
 
-  function drawSpawnGoal() {
-    const sp = tileCenter(SPAWN.c, SPAWN.r);
-    const gp = tileCenter(GOAL.c, GOAL.r);
-    // Spawn portal — magenta
-    ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 14;
-    ctx.fillStyle = '#ff5cb8';
-    ctx.beginPath(); ctx.arc(sp.x, sp.y, 10 + Math.sin(animT*0.1)*2, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sp.x, sp.y, 4, 0, Math.PI*2); ctx.fill();
-    // Goal — your base, a cyan crystal
-    ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 16;
-    ctx.fillStyle = '#9cd6ff';
-    ctx.beginPath();
-    ctx.moveTo(gp.x, gp.y - 14);
-    ctx.lineTo(gp.x + 12, gp.y);
-    ctx.lineTo(gp.x, gp.y + 14);
-    ctx.lineTo(gp.x - 12, gp.y);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(gp.x - 3, gp.y - 3, 3, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
   function drawHover() {
     if (!hover) return;
-    const t = hover;
-    if (t.c < 0 || t.c >= COLS || t.r < 0 || t.r >= ROWS) return;
+    if (hover.c < 0 || hover.c >= COLS || hover.r < 0 || hover.r >= ROWS) return;
     const def = TOWER_TYPES[selectedType];
-    const valid = grid[t.r][t.c] === 0 && gold >= def.cost && !!findPath(SPAWN.c, SPAWN.r, GOAL.c, GOAL.r, { c: t.c, r: t.r });
-    const wp = tileToWorld(t.c, t.r);
-    ctx.fillStyle = valid ? 'rgba(80, 255, 140, 0.18)' : 'rgba(255, 90, 140, 0.22)';
+    const valid = grid[hover.r][hover.c] === 0 && gold >= def.cost && !!findPath(SPAWN.c, SPAWN.r, GOAL.c, GOAL.r, { c: hover.c, r: hover.r });
+    const wp = tileToWorld(hover.c, hover.r);
+    ctx.fillStyle = valid ? 'rgba(80, 255, 140, 0.20)' : 'rgba(255, 90, 140, 0.25)';
     ctx.fillRect(wp.x, wp.y, TILE, TILE);
     ctx.strokeStyle = valid ? '#5fe87a' : '#ff5c8a';
     ctx.lineWidth = 2;
     ctx.strokeRect(wp.x + 1, wp.y + 1, TILE - 2, TILE - 2);
-    // Range circle
     if (valid) {
-      const c = tileCenter(t.c, t.r);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+      const c = tileCenter(hover.c, hover.r);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
       ctx.beginPath(); ctx.arc(c.x, c.y, def.range, 0, Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
     }
   }
 
-  // Map tower type → painted sprite key
-  const TOWER_SPRITE = {
-    cannon: 't_blaster',
-    frost:  't_plasma',
-    storm:  't_lightning',
-  };
   function drawTowers() {
-    for (const t of towers) {
+    // Sort by row so back towers draw first (basic depth)
+    const sorted = towers.slice().sort((a, b) => a.r - b.r);
+    for (const t of sorted) {
       const def = TOWER_TYPES[t.type];
       const center = tileCenter(t.c, t.r);
-      const spriteKey = TOWER_SPRITE[t.type];
-      const img = ASSETS[spriteKey];
+      const img = ASSETS[def.sprite];
       if (img && img.width && !img._failed) {
-        // Painted sprite — crop bottom 12% to remove pink ground aura, draw bottom-aligned
-        const sw = img.width, sh = Math.floor(img.height * 0.88);
-        const targetH = TILE * 1.5;
+        const sw = img.width, sh = Math.floor(img.height * 0.92);
+        const targetH = TILE * 1.55;
         const aspect = sw / sh;
         const targetW = targetH * aspect;
         const dx = center.x - targetW / 2;
         const dy = center.y + TILE/2 - targetH;
-        // soft glow on fire
         if (t.fireFlash > 0) { ctx.shadowColor = def.color; ctx.shadowBlur = 18; }
+        else if (t.auraBuff > 0.1) { ctx.shadowColor = '#c46cff'; ctx.shadowBlur = 8 + 6 * t.auraBuff; }
         ctx.drawImage(img, 0, 0, sw, sh, dx, dy, targetW, targetH);
         ctx.shadowBlur = 0;
       } else {
-        // Procedural fallback (the original Bloo silhouette)
-        ctx.shadowColor = def.color; ctx.shadowBlur = t.fireFlash > 0 ? 20 : 10;
-        ctx.fillStyle = '#1a1230';
-        ctx.beginPath(); ctx.arc(center.x, center.y + 6, 16, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = def.color;
-        ctx.beginPath(); ctx.arc(center.x, center.y - 4, 14, 0, Math.PI*2); ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(center.x - 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(center.x + 4, center.y - 4, 3, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#0a0a3a';
-        ctx.beginPath(); ctx.arc(center.x - 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(center.x + 4, center.y - 3, 1.4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(center.x, center.y, 16, 0, Math.PI*2); ctx.fill();
       }
     }
   }
 
   function drawEnemies() {
-    for (const e of enemies) {
+    // Sort by y (bigger y in front)
+    const sorted = enemies.slice().sort((a, b) => a.y - b.y);
+    for (const e of sorted) {
       const def = ENEMY_TYPES[e.type];
-      ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 12;
-      ctx.fillStyle = def.color;
-      ctx.beginPath(); ctx.arc(e.x, e.y, def.radius, 0, Math.PI*2); ctx.fill();
-      ctx.shadowBlur = 0;
-      // pink rim for boss
-      if (e.isBoss) { ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2.5; ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 16;
-        ctx.beginPath(); ctx.arc(e.x, e.y, def.radius - 1, 0, Math.PI*2); ctx.stroke(); ctx.shadowBlur = 0; }
-      // eyes
-      ctx.fillStyle = '#ff3030';
-      ctx.beginPath(); ctx.arc(e.x - def.radius/3, e.y - 3, 2.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(e.x + def.radius/3, e.y - 3, 2.5, 0, Math.PI*2); ctx.fill();
+      const img = ASSETS[def.sprite];
+      if (img && img.width && !img._failed) {
+        const ar = img.width / img.height;
+        const h = def.radius * 2.4;
+        const w = h * ar;
+        if (e.hitFlash > 0) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 14; }
+        else if (e.isBoss) { ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 16; }
+        else { ctx.shadowColor = '#a020a0'; ctx.shadowBlur = 8; }
+        ctx.drawImage(img, e.x - w/2, e.y - h/2, w, h);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = '#3a0a55';
+        ctx.beginPath(); ctx.arc(e.x, e.y, def.radius, 0, Math.PI*2); ctx.fill();
+      }
       // HP bar
       const barW = def.radius * 2;
-      const barX = e.x - barW/2, barY = e.y - def.radius - 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(barX, barY, barW, 4);
-      ctx.fillStyle = e.hp / e.hpMax > 0.5 ? '#5fe87a' : (e.hp / e.hpMax > 0.2 ? '#ffd54a' : '#ff5c8a');
-      ctx.fillRect(barX, barY, barW * Math.max(0, e.hp / e.hpMax), 4);
-      // slow indicator — painted slow_field sprite under feet
-      if (e.slowT > 0) {
-        if (ok('e_slowfield')) {
-          const sz = def.radius * 3;
-          ctx.globalAlpha = 0.55 + 0.25 * Math.sin(e.slowT * 0.2);
-          ctx.drawImage(ASSETS.e_slowfield, e.x - sz/2, e.y - sz/4, sz, sz/2);
-          ctx.globalAlpha = 1;
-        } else {
-          ctx.strokeStyle = 'rgba(156, 214, 255, 0.7)'; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(e.x, e.y, def.radius + 4, 0, Math.PI*2); ctx.stroke();
-        }
+      const barX = e.x - barW/2, barY = e.y - def.radius - 12;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(barX, barY, barW, 4);
+      const pct = Math.max(0, e.hp / e.hpMax);
+      ctx.fillStyle = pct > 0.5 ? '#5fe87a' : (pct > 0.2 ? '#ffd54a' : '#ff5c8a');
+      ctx.fillRect(barX, barY, barW * pct, 4);
+      // Slow indicator
+      if (e.slowT > 0 && ok('fx_slow')) {
+        const sz = def.radius * 3;
+        ctx.globalAlpha = 0.5 + 0.25 * Math.sin(e.slowT * 0.2);
+        ctx.drawImage(ASSETS.fx_slow, e.x - sz/2, e.y - sz/4, sz, sz/2);
+        ctx.globalAlpha = 1;
       }
     }
   }
@@ -776,18 +872,51 @@
   function drawProjectiles() {
     for (const p of projectiles) {
       if (p.type === 'beam') {
-        const a = p.life / 8;
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2 + 3 * a;
+        const a = p.life / 10;
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2 + 4 * a;
         ctx.shadowColor = p.color; ctx.shadowBlur = 14;
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.ex, p.ey); ctx.stroke();
         ctx.shadowBlur = 0;
+        // Optionally overlay chain sprite (small)
+        continue;
+      }
+      // Sprite projectile
+      const img = p.sprite ? ASSETS[p.sprite] : null;
+      if (img && img.width && !img._failed) {
+        const ar = img.width / img.height;
+        const h = 18, w = h * ar;
+        // Rotate to direction of motion
+        let ang = 0;
+        if (p.target) ang = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+        else if (p.vx !== undefined) ang = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(ang);
+        ctx.shadowColor = p.color; ctx.shadowBlur = 10;
+        ctx.drawImage(img, -w/2, -h/2, w, h);
+        ctx.shadowBlur = 0;
+        ctx.restore();
       } else {
         ctx.shadowColor = p.color; ctx.shadowBlur = 10;
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
         ctx.shadowBlur = 0;
       }
+    }
+  }
+
+  function drawFxBlasts() {
+    for (const f of fxBlasts) {
+      const img = ASSETS[f.sprite];
+      if (!img || !img.width || img._failed) continue;
+      const t = f.t / f.life;
+      const scale = 0.7 + 0.6 * t;
+      const alpha = Math.max(0, 1 - t);
+      const ar = img.width / img.height;
+      const w = f.size * scale, h = w / ar;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, f.x - w/2, f.y - h/2, w, h);
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -803,139 +932,110 @@
   function drawHUD() {
     // Top HUD bar
     ctx.fillStyle = 'rgba(10, 5, 25, 0.7)';
-    roundRect(14, 14, W - 28, 76, 12); ctx.fill();
+    roundRect(14, 14, W - 28, 84, 12); ctx.fill();
     ctx.strokeStyle = 'rgba(255, 92, 184, 0.4)'; ctx.lineWidth = 1.2; ctx.stroke();
 
-    // GOLD — painted orb icon
-    if (ok('u_orb')) {
-      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 8;
-      ctx.drawImage(ASSETS.u_orb, 22, 22, 30, 30);
-      ctx.shadowBlur = 0;
-    }
+    // Currency orb + gold
+    if (ok('u_orb')) { ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 8; ctx.drawImage(ASSETS.u_orb, 22, 22, 32, 32); ctx.shadowBlur = 0; }
     ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(gold), 58, 38);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('GOLD', 58, 58);
+    ctx.fillText(String(gold), 60, 38);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 10px system-ui';
+    ctx.fillText('GOLD', 60, 60);
 
-    // LIVES — painted heart icon
-    if (ok('u_heart')) {
-      ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 8;
-      ctx.drawImage(ASSETS.u_heart, 145, 22, 30, 28);
-      ctx.shadowBlur = 0;
-    }
+    // Heart + lives
+    if (ok('u_heart')) { ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 8; ctx.drawImage(ASSETS.u_heart, 150, 22, 32, 30); ctx.shadowBlur = 0; }
     ctx.fillStyle = '#fff'; ctx.font = 'bold 22px system-ui';
-    ctx.fillText(String(lives), 180, 38);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = 'bold 10px system-ui';
-    ctx.fillText('LIVES', 180, 58);
+    ctx.fillText(String(lives), 188, 38);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 10px system-ui';
+    ctx.fillText('LIVES', 188, 60);
 
-    // WAVE — painted icon
-    if (ok('u_wave')) {
-      ctx.shadowColor = '#c46cff'; ctx.shadowBlur = 6;
-      ctx.drawImage(ASSETS.u_wave, W/2 - 50, 24, 28, 26);
-      ctx.shadowBlur = 0;
-    }
+    // Wave icon + counter
+    if (ok('u_wave')) { ctx.shadowColor = '#c46cff'; ctx.shadowBlur = 6; ctx.drawImage(ASSETS.u_wave, W/2 - 60, 22, 30, 28); ctx.shadowBlur = 0; }
     ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText('WAVE', W/2 - 18, 32);
+    ctx.fillText('WAVE', W/2 - 22, 32);
     ctx.font = 'bold 18px system-ui';
-    ctx.fillText((Math.min(waveIdx + 1, WAVES.length)) + ' / ' + WAVES.length, W/2 - 18, 52);
+    ctx.fillText((Math.min(waveIdx + 1, WAVES.length)) + ' / ' + WAVES.length, W/2 - 22, 54);
 
-    // START WAVE button (top-right)
-    const btnX = W - 140, btnY = 22, btnW = 120, btnH = 60;
+    // Start wave button
+    const sb = startBtnRect();
     if (!waveActive && waveIdx < WAVES.length && !gameOver) {
-      ctx.fillStyle = 'rgba(95, 232, 122, 0.25)';
-      roundRect(btnX, btnY, btnW, btnH, 10); ctx.fill();
+      ctx.fillStyle = 'rgba(95, 232, 122, 0.22)';
+      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.fill();
       ctx.strokeStyle = '#5fe87a'; ctx.lineWidth = 2; ctx.shadowColor = '#5fe87a'; ctx.shadowBlur = 12;
-      roundRect(btnX, btnY, btnW, btnH, 10); ctx.stroke();
+      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('START WAVE', btnX + btnW/2, btnY + 24);
-      ctx.fillStyle = '#5fe87a'; ctx.font = 'bold 18px system-ui';
-      ctx.fillText('▶ ' + (waveIdx + 1), btnX + btnW/2, btnY + 46);
+      // Painted play icon
+      if (ok('u_play')) ctx.drawImage(ASSETS.u_play, sb.x + sb.w/2 - 14, sb.y + 8, 28, 26);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('START WAVE ' + (waveIdx + 1), sb.x + sb.w/2, sb.y + sb.h - 14);
     } else if (waveActive) {
       ctx.fillStyle = 'rgba(255, 92, 184, 0.20)';
-      roundRect(btnX, btnY, btnW, btnH, 10); ctx.fill();
-      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2;
-      roundRect(btnX, btnY, btnW, btnH, 10); ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('WAVE', btnX + btnW/2, btnY + 22);
-      ctx.fillText('IN PROGRESS', btnX + btnW/2, btnY + 42);
+      roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.fill();
+      ctx.strokeStyle = '#ff5cb8'; ctx.lineWidth = 2; roundRect(sb.x, sb.y, sb.w, sb.h, 12); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('WAVE IN PROGRESS', sb.x + sb.w/2, sb.y + sb.h/2 + 4);
     }
 
-    // Tower palette at bottom
     drawPalette();
   }
 
   function drawPalette() {
-    const palY = H - 110;
-    ctx.fillStyle = 'rgba(10, 5, 25, 0.7)';
-    roundRect(14, palY - 4, W - 28, 100, 12); ctx.fill();
+    const r = paletteRect();
+    ctx.fillStyle = 'rgba(10, 5, 25, 0.75)';
+    roundRect(r.x, r.y, r.w, r.h, 12); ctx.fill();
     ctx.strokeStyle = 'rgba(255, 92, 184, 0.4)'; ctx.lineWidth = 1.2; ctx.stroke();
 
-    const types = Object.keys(TOWER_TYPES);
-    const btnW = 100, gap = 12;
-    const totalW = types.length * btnW + (types.length - 1) * gap;
-    const startX = (W - totalW) / 2;
-    for (let i = 0; i < types.length; i++) {
-      const def = TOWER_TYPES[types[i]];
-      const bx = startX + i * (btnW + gap);
-      const by = palY + 8;
-      const sel = types[i] === selectedType;
+    const btns = paletteButtons();
+    for (const b of btns) {
+      const def = TOWER_TYPES[b.type];
+      const sel = b.type === selectedType;
       const afford = gold >= def.cost;
-      ctx.fillStyle = sel ? 'rgba(255, 92, 184, 0.25)' : 'rgba(255, 255, 255, 0.05)';
-      roundRect(bx, by, btnW, 80, 10); ctx.fill();
+      ctx.fillStyle = sel ? 'rgba(255, 92, 184, 0.25)' : 'rgba(255, 255, 255, 0.04)';
+      roundRect(b.x, b.y, b.w, b.h, 8); ctx.fill();
       ctx.strokeStyle = sel ? '#ff5cb8' : (afford ? 'rgba(255,255,255,0.18)' : 'rgba(255,90,140,0.4)');
       ctx.lineWidth = sel ? 2 : 1;
       if (sel) { ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 12; }
-      roundRect(bx, by, btnW, 80, 10); ctx.stroke();
+      roundRect(b.x, b.y, b.w, b.h, 8); ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Painted tower icon (mini)
-      const spriteKey = TOWER_SPRITE[types[i]];
-      const img = ASSETS[spriteKey];
+      // Tower icon (left side)
+      const img = ASSETS[def.sprite];
       if (img && img.width && !img._failed) {
-        const sw = img.width, sh = Math.floor(img.height * 0.88);
-        const targetH = 38;
-        const aspect = sw / sh;
-        const targetW = targetH * aspect;
-        if (sel) { ctx.shadowColor = def.color; ctx.shadowBlur = 12; }
-        ctx.drawImage(img, 0, 0, sw, sh, bx + btnW/2 - targetW/2, by + 4, targetW, targetH);
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.shadowColor = def.color; ctx.shadowBlur = 8;
-        ctx.fillStyle = def.color;
-        ctx.beginPath(); ctx.arc(bx + btnW/2, by + 26, 14, 0, Math.PI*2); ctx.fill();
+        const sh = Math.floor(img.height * 0.92);
+        const targetH = b.h - 14;
+        const ar = img.width / sh;
+        const targetW = targetH * ar;
+        const dx = b.x + 6;
+        const dy = b.y + 7;
+        if (sel) { ctx.shadowColor = def.color; ctx.shadowBlur = 10; }
+        ctx.drawImage(img, 0, 0, img.width, sh, dx, dy, Math.min(targetW, b.h - 8), targetH);
         ctx.shadowBlur = 0;
       }
 
-      // Name
+      // Right side: name + cost
       ctx.fillStyle = afford ? '#fff' : 'rgba(255, 255, 255, 0.4)';
-      ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(def.name.split(' ')[0], bx + btnW/2, by + 56);
-      // Cost — painted orb icon + number
-      if (ok('u_orb')) {
-        ctx.drawImage(ASSETS.u_orb, bx + btnW/2 - 28, by + 64, 14, 14);
-      }
-      ctx.fillStyle = afford ? '#fff' : '#ff5c8a';
-      ctx.font = 'bold 13px system-ui';
-      ctx.fillText(String(def.cost), bx + btnW/2 + 4, by + 73);
+      ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(def.name, b.x + b.h - 2, b.y + 18);
+      // Cost (orb + number)
+      if (ok('u_orb')) ctx.drawImage(ASSETS.u_orb, b.x + b.h - 2, b.y + b.h - 22, 14, 14);
+      ctx.fillStyle = afford ? '#ffd54a' : '#ff5c8a';
+      ctx.font = 'bold 12px system-ui';
+      ctx.fillText(String(def.cost), b.x + b.h + 14, b.y + b.h - 14);
     }
   }
 
   function drawGameOver() {
     if (!gameOver) return;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = gameOver === 'win' ? '#5fe87a' : '#ff5c8a';
-    ctx.shadowColor = gameOver === 'win' ? '#5fe87a' : '#ff5c8a'; ctx.shadowBlur = 20;
+    ctx.shadowColor = gameOver === 'win' ? '#5fe87a' : '#ff5c8a'; ctx.shadowBlur = 24;
     ctx.font = 'bold 48px system-ui'; ctx.textAlign = 'center';
     ctx.fillText(gameOver === 'win' ? 'VICTORY!' : 'BASE LOST', W/2, H * 0.42);
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; ctx.font = '16px system-ui';
-    if (gameOver === 'win') {
-      ctx.fillText('You defended the portal through ' + WAVES.length + ' waves!', W/2, H * 0.50);
-    } else {
-      ctx.fillText('You held until wave ' + (waveIdx + 1) + ' / ' + WAVES.length, W/2, H * 0.50);
-    }
+    if (gameOver === 'win') ctx.fillText('You defended the portal through ' + WAVES.length + ' waves!', W/2, H * 0.50);
+    else ctx.fillText('You held until wave ' + (waveIdx + 1) + ' / ' + WAVES.length, W/2, H * 0.50);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui';
     ctx.fillText('TAP / CLICK TO PLAY AGAIN', W/2, H * 0.58);
   }
@@ -961,16 +1061,12 @@
   }
 
   function frame() {
-    if (!ready()) {
-      drawLoading();
-      requestAnimationFrame(frame);
-      return;
-    }
+    if (!ready()) { drawLoading(); requestAnimationFrame(frame); return; }
     update();
     drawBg();
-    drawGrid();
-    drawPath();
+    drawTilesAndDecor();
     drawSpawnGoal();
+    drawPathTrail();
     drawHover();
     drawTowers();
     drawProjectiles();
