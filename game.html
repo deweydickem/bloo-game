@@ -92,6 +92,18 @@
     z-index: 11;
   }
   #btn-back:active { transform: scale(0.95); }
+  #btn-board {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    right: calc(max(14px, env(safe-area-inset-right)) + 48px);
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 17px;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none; cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    z-index: 11;
+  }
 </style>
 </head>
 <body>
@@ -106,7 +118,9 @@
   <div id="btn-jump"  class="tbtn" data-key="Space">↑</div>
 </div>
 <a id="btn-back" href="index.html" title="Back to menu">‹ MENU</a>
+<a id="btn-board" href="leaderboard.html" title="Leaderboard">🏆</a>
 <div id="btn-mute" title="Mute (M)" aria-label="Toggle sound">🔊</div>
+<script src="leaderboard.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('c');
@@ -586,7 +600,17 @@
       if (player.deathT > 90) {
         player.lives--;
         if (player.lives <= 0) {
-          showMsg('GAME OVER — press R to try again'); player.lives = 0;
+          const score = player.coins + currentLevel * 100;
+          showMsg('GAME OVER — Score: ' + score + ' — press R to try again'); player.lives = 0;
+          // Leaderboard submission
+          try {
+            if (typeof BlooLB !== 'undefined' && !player._submitted) {
+              player._submitted = true;
+              BlooLB.ensureUsername().then(() => {
+                BlooLB.submitScore('platformer', score, { coins: player.coins, level: currentLevel + 1, victory: false });
+              });
+            }
+          } catch (_) {}
         } else {
           resetPlayer();
         }
@@ -773,7 +797,16 @@
         setTimeout(() => { player.won = false; }, 1200);
       } else {
         player.won = true;
-        showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Crystals: ' + player.coins + ' — press R to play again');
+        const finalScore = player.coins + (LEVEL_ORDER.length) * 100;
+        showMsg('YOU CLEARED ALL ' + LEVEL_ORDER.length + ' LEVELS! Score: ' + finalScore + ' (Crystals: ' + player.coins + ') — press R to play again');
+        // Leaderboard submission
+        try {
+          if (typeof BlooLB !== 'undefined') {
+            BlooLB.ensureUsername().then(() => {
+              BlooLB.submitScore('platformer', finalScore, { coins: player.coins, levels: LEVEL_ORDER.length, victory: true });
+            });
+          }
+        } catch (_) {}
       }
     }
 
@@ -819,7 +852,7 @@
       }
     }
 
-    if (keys['KeyR']) { player.coins = 0; player.lives = 3; loadLevel(0); hideMsg(); }
+    if (keys['KeyR']) { player.coins = 0; player.lives = 3; player._submitted = false; loadLevel(0); hideMsg(); }
 
     updateCamera();
   }

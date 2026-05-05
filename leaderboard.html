@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0716" />
+<title>Leaderboard — Bloo Arcade</title>
+<style>
+  :root { --bg-1: #0a0716; --pink: #ff5cb8; --pink-2: #ff8de0; --cyan: #9cd6ff; --green: #5fe87a; --gold: #ffd54a; }
+  * { box-sizing: border-box; }
+  html { background: var(--bg-1); }
+  html, body { margin: 0; padding: 0; color: #fff; font-family: system-ui, -apple-system, sans-serif; min-height: 100%; -webkit-tap-highlight-color: transparent; }
+  body { background: transparent; min-height: 100vh; min-height: 100dvh;
+         display: flex; flex-direction: column; align-items: center;
+         padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+         position: relative; }
+  .bg-img { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; object-fit: cover; object-position: 70% center; z-index: -2; }
+  .bg-vignette { position: fixed; inset: 0; pointer-events: none; z-index: -1;
+                 background: linear-gradient(180deg, rgba(10,7,22,0.55) 0%, rgba(10,7,22,0.2) 18%, rgba(10,7,22,0.4) 78%, rgba(10,7,22,0.7) 100%); }
+
+  /* top bar with back link */
+  .topbar { width: 100%; max-width: 720px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; position: relative; z-index: 1; }
+  .back { color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 999px;
+          background: rgba(20,8,40,0.55); border: 1.5px solid rgba(255,92,184,0.45);
+          font-size: 12px; font-weight: 600; letter-spacing: .5px;
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .you { color: rgba(255,255,255,0.65); font-size: 12px; }
+  .you b { color: var(--pink-2); }
+
+  header { text-align: center; margin: 4px 0 22px; position: relative; z-index: 1; }
+  h1 { margin: 0; font-size: clamp(34px, 7vw, 60px); font-weight: 800; letter-spacing: 1px;
+       background: linear-gradient(180deg, #fff 0%, var(--pink-2) 50%, var(--pink) 100%);
+       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+       filter: drop-shadow(0 0 14px rgba(255, 92, 184, 0.5)) drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
+  .sub { color: #fff; opacity: 0.85; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; margin-top: 4px;
+         text-shadow: 0 0 12px rgba(255, 92, 184, 0.5), 0 2px 4px rgba(0,0,0,0.7); }
+
+  /* tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; position: relative; z-index: 1; }
+  .tab { padding: 8px 14px; border-radius: 999px; cursor: pointer;
+         background: rgba(20,8,40,0.55); border: 1.5px solid rgba(255,92,184,0.35);
+         color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 600; letter-spacing: .3px;
+         backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+         transition: transform .15s, border-color .15s, color .15s, box-shadow .15s; }
+  .tab:hover { transform: translateY(-2px); }
+  .tab.active { color: #fff; border-color: var(--pink); box-shadow: 0 0 16px rgba(255, 92, 184, 0.5); background: rgba(255, 92, 184, 0.18); }
+
+  /* board panel */
+  .board { width: 100%; max-width: 720px; position: relative; z-index: 1;
+           background: rgba(20,8,40,0.65); border: 1.5px solid rgba(255,92,184,0.35); border-radius: 16px;
+           padding: 20px 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+           box-shadow: 0 12px 32px rgba(0,0,0,0.6), 0 0 28px rgba(255, 92, 184, 0.18); }
+  .board h2 { margin: 0 0 4px; font-size: 18px; }
+  .board .meta { color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid rgba(255,92,184,0.12); font-size: 14px; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.55); font-weight: 600; }
+  tr.me td { background: rgba(255, 92, 184, 0.08); }
+  td.rank { width: 36px; color: rgba(255,255,255,0.5); font-weight: 700; font-feature-settings: 'tnum'; }
+  td.rank.top1 { color: var(--gold); }
+  td.rank.top2 { color: #d8d8d8; }
+  td.rank.top3 { color: #cd7f32; }
+  td.name { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.score { text-align: right; font-weight: 700; color: var(--pink-2); font-feature-settings: 'tnum'; }
+  td.date { text-align: right; color: rgba(255,255,255,0.4); font-size: 12px; font-feature-settings: 'tnum'; white-space: nowrap; }
+  .empty { padding: 32px 12px; text-align: center; color: rgba(255,255,255,0.5); }
+  .empty a { color: var(--pink-2); }
+
+  /* per-game cells in the cumulative table */
+  td.gscore { text-align: right; color: rgba(255,255,255,0.7); font-feature-settings: 'tnum'; font-size: 13px; }
+
+  /* footer actions */
+  .actions { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .actions a { background: rgba(20,8,40,0.55); color: #fff; text-decoration: none;
+               padding: 10px 18px; border-radius: 999px; border: 1.5px solid rgba(255,92,184,0.45);
+               font-size: 13px; font-weight: 600; letter-spacing: .5px;
+               backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .actions a:hover { border-color: var(--pink); box-shadow: 0 0 14px rgba(255, 92, 184, 0.4); }
+
+  @media (max-width: 480px) {
+    .board { padding: 14px 12px; border-radius: 12px; }
+    th, td { padding: 8px 6px; font-size: 13px; }
+    td.date { display: none; }
+  }
+</style>
+</head>
+<body>
+  <img class="bg-img" src="bg.jpg" alt="" aria-hidden="true">
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <div class="topbar">
+    <a class="back" href="index.html">‹ ARCADE</a>
+    <div class="you">Player: <b id="you-name">…</b> &nbsp; <a href="#" id="rename" style="color:var(--pink-2); text-decoration:none;">change</a></div>
+  </div>
+
+  <header>
+    <h1>Leaderboard</h1>
+    <div class="sub">Bloo Arcade — top runs</div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="board" id="board"></div>
+
+  <div class="actions">
+    <a href="game.html">Play Forest of Embers</a>
+    <a href="tower.html">Play Bloo Defense</a>
+    <a href="runner.html">Play Crowd Runner</a>
+  </div>
+
+  <script src="leaderboard.js"></script>
+  <script>
+    const TABS = [
+      { id: 'cumulative', label: 'CUMULATIVE' },
+      { id: 'platformer', label: 'FOREST OF EMBERS' },
+      { id: 'tower',      label: 'BLOO DEFENSE' },
+      { id: 'runner',     label: 'CROWD RUNNER' },
+    ];
+    let currentTab = 'cumulative';
+
+    const tabsEl = document.getElementById('tabs');
+    const boardEl = document.getElementById('board');
+    const youEl   = document.getElementById('you-name');
+    const renameBtn = document.getElementById('rename');
+
+    function renderTabs() {
+      tabsEl.innerHTML = '';
+      for (const t of TABS) {
+        const el = document.createElement('div');
+        el.className = 'tab' + (t.id === currentTab ? ' active' : '');
+        el.textContent = t.label;
+        el.addEventListener('click', () => { currentTab = t.id; renderTabs(); renderBoard(); });
+        tabsEl.appendChild(el);
+      }
+    }
+
+    function fmtDate(ts) {
+      const d = new Date(ts);
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      if (sameDay) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function renderBoard() {
+      const me = (BlooLB.getUsername() || '').toLowerCase();
+      if (currentTab === 'cumulative') {
+        const { entries, maxByGame } = BlooLB.getCumulative();
+        const lines = [];
+        lines.push('<h2>Cumulative ranking</h2>');
+        lines.push('<div class="meta">Each game scored 0–1000 (relative to its all-time max), summed across the 3 games.</div>');
+        if (!entries.length) {
+          lines.push('<div class="empty">No scores yet — <a href="index.html">play a game</a> to start the board.</div>');
+        } else {
+          lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">Forest</th><th style="text-align:right">Defense</th><th style="text-align:right">Runner</th><th style="text-align:right">Total</th></tr></thead><tbody>');
+          entries.slice(0, 30).forEach((e, i) => {
+            const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
+            const rank = i + 1;
+            const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+            const cell = (gid) => {
+              const raw = e.games[gid] || 0;
+              const max = maxByGame[gid] || 1;
+              const norm = Math.round((raw / max) * 1000);
+              return raw ? `${norm} <span style="color:rgba(255,255,255,0.35)">(${raw})</span>` : '<span style="color:rgba(255,255,255,0.25)">—</span>';
+            };
+            lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="gscore">${cell('platformer')}</td><td class="gscore">${cell('tower')}</td><td class="gscore">${cell('runner')}</td><td class="score">${e.total}</td></tr>`);
+          });
+          lines.push('</tbody></table>');
+        }
+        boardEl.innerHTML = lines.join('');
+      } else {
+        const game = BlooLB.GAMES[currentTab];
+        const list = BlooLB.getScores(currentTab);
+        const lines = [];
+        lines.push(`<h2>${game.name}</h2>`);
+        lines.push(`<div class="meta">Top runs · ${game.metricLabel.toLowerCase()}</div>`);
+        if (!list.length) {
+          const link = currentTab === 'platformer' ? 'game.html' : currentTab === 'tower' ? 'tower.html' : 'runner.html';
+          lines.push(`<div class="empty">No runs yet — <a href="${link}">play it</a> to set the first record.</div>`);
+        } else {
+          lines.push('<table><thead><tr><th>#</th><th>Player</th><th style="text-align:right">' + game.metricLabel + '</th><th style="text-align:right">When</th></tr></thead><tbody>');
+          list.slice(0, 30).forEach((e, i) => {
+            const meRow = e.name.toLowerCase() === me ? ' class="me"' : '';
+            const rank = i + 1;
+            const rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+            lines.push(`<tr${meRow}><td class="rank ${rankCls}">${rank}</td><td class="name">${escapeHtml(e.name)}</td><td class="score">${e.score.toLocaleString()}</td><td class="date">${fmtDate(e.date)}</td></tr>`);
+          });
+          lines.push('</tbody></table>');
+        }
+        boardEl.innerHTML = lines.join('');
+      }
+    }
+
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function refreshUser() {
+      const n = BlooLB.getUsername();
+      youEl.textContent = n || 'Guest';
+    }
+    renameBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await BlooLB.promptUsername({ message: 'Update your display name. Used on the leaderboard.' });
+      refreshUser();
+      renderBoard();
+    });
+
+    refreshUser();
+    renderTabs();
+    renderBoard();
+  </script>
+</body>
+</html>

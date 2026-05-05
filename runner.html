@@ -34,6 +34,15 @@
     cursor: pointer; z-index: 11;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
+  #btn-board {
+    position: fixed; top: max(14px, env(safe-area-inset-top));
+    right: calc(max(14px, env(safe-area-inset-right)) + 48px);
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 17px; display:flex; align-items:center; justify-content:center;
+    text-decoration: none; cursor: pointer; z-index: 11;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
   #title-tip { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,0.5); pointer-events:none; }
   @media (hover: none) and (pointer: coarse) { #title-tip { display:none; } }
 </style>
@@ -41,7 +50,9 @@
 <body>
 <div id="wrap"><canvas id="c" width="540" height="960"></canvas></div>
 <a id="btn-back" href="index.html">‹ MENU</a>
+<a id="btn-board" href="leaderboard.html" title="Leaderboard">🏆</a>
 <div id="btn-mute" title="Mute (M)">🔊</div>
+<script src="leaderboard.js"></script>
 <div id="title-tip">Steer: ← → / A D / drag &nbsp;·&nbsp; Fire: SPACE / tap &nbsp;·&nbsp; M to mute</div>
 
 <script>
@@ -652,6 +663,14 @@
       bestScore = score;
       try { localStorage.setItem('bloo.runner.bestScore', String(score)); } catch(_) {}
     }
+    // Leaderboard submission (prompt for name on first run)
+    try {
+      if (typeof BlooLB !== 'undefined') {
+        BlooLB.ensureUsername().then(() => {
+          BlooLB.submitScore('runner', score, { distance: Math.floor(distance) });
+        });
+      }
+    } catch (_) {}
   }
 
   // ============================================================================

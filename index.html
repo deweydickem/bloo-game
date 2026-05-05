@@ -72,6 +72,16 @@
     text-shadow: 0 0 12px rgba(255, 92, 184, 0.5), 0 2px 4px rgba(0,0,0,0.7);
     opacity: 0.85;
   }
+  .lb-link {
+    display: inline-block; margin-top: 12px;
+    padding: 8px 16px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.55);
+    color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    text-decoration: none; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 14px rgba(255, 92, 184, 0.2);
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+  }
+  .lb-link:hover { transform: translateY(-2px); border-color: var(--pink); box-shadow: 0 6px 20px rgba(0,0,0,0.5), 0 0 22px rgba(255, 92, 184, 0.5); }
 
   /* ---- Cards ---- */
   .grid {
@@ -286,6 +296,7 @@
   <header>
     <h1>Bloo Arcade</h1>
     <div class="subtitle">A growing collection of mini-games</div>
+    <a class="lb-link" href="leaderboard.html">🏆 LEADERBOARD</a>
   </header>
 
   <div class="grid">
