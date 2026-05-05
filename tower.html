@@ -280,7 +280,7 @@
   // ============================================================================
   // GAME STATE
   // ============================================================================
-  let gold = 250;
+  let gold = 150;
   let lives = 20;
   let waveIdx = 0;
   let waveActive = false;
@@ -514,7 +514,7 @@
       if (grid[r][c] === 1) grid[r][c] = 0;
     }
     towers.length = 0; enemies.length = 0; projectiles.length = 0; particles.length = 0; fxBlasts.length = 0;
-    gold = 250; lives = 20; waveIdx = 0; waveActive = false; spawnQueue.length = 0;
+    gold = 150; lives = 20; waveIdx = 0; waveActive = false; spawnQueue.length = 0;
     gameOver = false; selectedType = 'blaster';
     recomputePath(); rebuildPathSet();
   }
@@ -847,6 +847,35 @@
     }
   }
 
+  // Draw range circles UNDER all towers so they layer below sprites and don't fight for attention
+  function drawTowerRanges() {
+    if (!towers.length) return;
+    ctx.save();
+    for (const t of towers) {
+      const def = TOWER_TYPES[t.type];
+      const c = tileCenter(t.c, t.r);
+      // Subtle filled disc tinted by tower color
+      const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, def.range);
+      grad.addColorStop(0, hexToRgba(def.color, 0.0));
+      grad.addColorStop(0.85, hexToRgba(def.color, 0.05));
+      grad.addColorStop(1, hexToRgba(def.color, 0.10));
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(c.x, c.y, def.range, 0, Math.PI * 2); ctx.fill();
+      // Dashed outline so the edge is readable
+      ctx.strokeStyle = hexToRgba(def.color, 0.55);
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.arc(c.x, c.y, def.range, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  function hexToRgba(hex, a) {
+    const m = hex.replace('#','');
+    const r = parseInt(m.slice(0,2),16), g = parseInt(m.slice(2,4),16), b = parseInt(m.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
   function drawTowers() {
     // Sort by row so back towers draw first (basic depth)
     const sorted = towers.slice().sort((a, b) => a.r - b.r);
@@ -1122,6 +1151,7 @@
     drawTilesAndDecor();
     drawSpawnGoal();
     drawPathTrail();
+    drawTowerRanges();   // ranges drawn under towers
     drawHover();
     drawTowers();
     drawProjectiles();
