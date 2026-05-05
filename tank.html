@@ -164,15 +164,16 @@
   const FISH_VARIANTS = ['cyan','magenta','green','lime','orange','red','yellow','navy','gold','blue_dark','silver','jade'];
   const EGG_VARIANTS  = ['common','rare','epic','legendary'];
   const FOOD_VARIANTS = ['basic','super','golden','energy'];
+  const DECOR_VARIANTS = ['coral','seaweed','rock','treasure_chest','shipwreck'];
   const ASSET_LIST = {
-    bg:    'bg.jpg',
     coin:  'sprites/tank/currency/coins.png',
     gem:   'sprites/tank/currency/gems.png',
     food:  'sprites/tank/food/golden.png',
   };
-  for (const v of FISH_VARIANTS) ASSET_LIST['fish_' + v] = `sprites/tank/variants/${v}.png`;
-  for (const v of EGG_VARIANTS)  ASSET_LIST['egg_'  + v] = `sprites/tank/eggs/${v}.png`;
-  for (const v of FOOD_VARIANTS) ASSET_LIST['food_' + v] = `sprites/tank/food/${v}.png`;
+  for (const v of FISH_VARIANTS)  ASSET_LIST['fish_'  + v] = `sprites/tank/variants/${v}.png`;
+  for (const v of EGG_VARIANTS)   ASSET_LIST['egg_'   + v] = `sprites/tank/eggs/${v}.png`;
+  for (const v of FOOD_VARIANTS)  ASSET_LIST['food_'  + v] = `sprites/tank/food/${v}.png`;
+  for (const v of DECOR_VARIANTS) ASSET_LIST['decor_' + v] = `sprites/tank/decor/${v}.png`;
   const A = {};
   let loaded = 0;
   for (const [k, src] of Object.entries(ASSET_LIST)) {
@@ -557,7 +558,8 @@
       if (b.x < margin) { b.x = margin; b.vx = Math.abs(b.vx); b.facing = 1; }
       if (b.x > W - margin) { b.x = W - margin; b.vx = -Math.abs(b.vx); b.facing = -1; }
       if (b.y < 90 + margin) { b.y = 90 + margin; b.vy = Math.abs(b.vy); }
-      if (b.y > H - margin - 40) { b.y = H - margin - 40; b.vy = -Math.abs(b.vy); }
+      // Stay above the floor decor (sand strip ~56px + decor breathing room)
+      if (b.y > H - margin - 80) { b.y = H - margin - 80; b.vy = -Math.abs(b.vy); }
       if (b.eyeBlink > 0) b.eyeBlink--;
       else if (Math.random() < 0.005) b.eyeBlink = 6;
     }
@@ -637,25 +639,117 @@
   // ============================================================================
   // DRAW
   // ============================================================================
+  // Pre-rolled decor layout for the tank floor — fixed seed so the placement
+  // stays consistent across resizes. Each entry is { which, xFrac, scale, flip }.
+  let _decorLayout = null;
+  function buildDecorLayout() {
+    // Deterministic pseudo-random based on a fixed seed
+    let s = 0x9e3779b1; const rand = () => { s = (s * 1664525 + 1013904223) | 0; return ((s >>> 0) / 0xffffffff); };
+    const items = [
+      { which: 'shipwreck',     xFrac: 0.18, scale: 1.30, flip: false },
+      { which: 'seaweed',       xFrac: 0.30, scale: 0.95, flip: false },
+      { which: 'rock',          xFrac: 0.42, scale: 0.85, flip: false },
+      { which: 'coral',         xFrac: 0.55, scale: 1.00, flip: false },
+      { which: 'seaweed',       xFrac: 0.66, scale: 1.10, flip: true  },
+      { which: 'treasure_chest',xFrac: 0.78, scale: 1.05, flip: false },
+      { which: 'coral',         xFrac: 0.90, scale: 0.80, flip: true  },
+      { which: 'rock',          xFrac: 0.06, scale: 0.70, flip: true  },
+    ];
+    // tiny jitter
+    for (const it of items) { it.xFrac += (rand() - 0.5) * 0.02; }
+    return items;
+  }
+
   function drawBg() {
-    if (ok('bg')) {
-      const img = A.bg;
-      const ratio = Math.max(W / img.width, H / img.height);
-      const dw = img.width * ratio, dh = img.height * ratio;
-      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    } else { ctx.fillStyle = '#1a0e3a'; ctx.fillRect(0, 0, W, H); }
-    ctx.fillStyle = 'rgba(20, 8, 60, 0.35)'; ctx.fillRect(0, 0, W, H);
-    // bubbles
-    for (let i = 0; i < 18; i++) {
+    // 1) Vertical water gradient — bright cyan top → deep navy bottom
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#1c5ea8');
+    grad.addColorStop(0.4, '#103b78');
+    grad.addColorStop(0.85, '#071e4a');
+    grad.addColorStop(1, '#040f2c');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+    // 2) Soft caustic light shimmer near the top — drifting glow blobs
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const phase = animT * 0.011 + i * 1.7;
+      const y = 40 + i * 14 + Math.sin(phase) * 8;
+      const r = 90 + Math.sin(phase * 1.3) * 20;
+      const x = ((animT * 0.35 + i * 220) % (W + 300)) - 150;
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, 'rgba(180, 230, 255, 0.22)');
+      grd.addColorStop(0.6, 'rgba(120, 200, 255, 0.06)');
+      grd.addColorStop(1, 'rgba(120, 200, 255, 0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    // 3) Sandy/silty floor strip
+    const floorY = H - 56;
+    const sandGrad = ctx.createLinearGradient(0, floorY, 0, H);
+    sandGrad.addColorStop(0, 'rgba(240, 210, 150, 0.0)');
+    sandGrad.addColorStop(0.3, 'rgba(180, 150, 100, 0.55)');
+    sandGrad.addColorStop(1, 'rgba(120, 90, 55, 0.85)');
+    ctx.fillStyle = sandGrad;
+    ctx.fillRect(0, floorY, W, 56);
+    // sand bumps
+    ctx.fillStyle = 'rgba(220, 185, 130, 0.35)';
+    for (let i = 0; i < W; i += 8) {
+      const h = 4 + Math.sin(i * 0.07) * 2 + Math.cos(i * 0.13 + 1) * 1.5;
+      ctx.fillRect(i, floorY + 2 - h, 8, h);
+    }
+    // sand specks
+    ctx.fillStyle = 'rgba(255, 240, 200, 0.5)';
+    for (let i = 0; i < 60; i++) {
+      const x = (i * 53 + 7) % W;
+      const y = floorY + 8 + (i * 17 % 40);
+      ctx.fillRect(x, y, 1.5, 1.5);
+    }
+
+    // 4) Painted decorations anchored to the floor
+    if (!_decorLayout) _decorLayout = buildDecorLayout();
+    for (const it of _decorLayout) {
+      const key = 'decor_' + it.which;
+      if (!ok(key)) continue;
+      const img = A[key];
+      // Target height scaled to canvas
+      const baseH = Math.min(160, H * 0.22) * it.scale;
+      const ar = img.width / img.height;
+      const dh = baseH;
+      const dw = baseH * ar;
+      const cx = it.xFrac * W;
+      const baseY = floorY + 8; // bottom of decor sits in the sand
+      ctx.save();
+      ctx.translate(cx, baseY);
+      if (it.flip) ctx.scale(-1, 1);
+      // Slight back-of-tank dim + vertical shadow
+      ctx.shadowColor = 'rgba(0, 10, 30, 0.6)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
+      ctx.drawImage(img, -dw/2, -dh, dw, dh);
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // 5) Bubbles drifting up
+    for (let i = 0; i < 22; i++) {
       const t = animT * 0.3 + i * 23;
       const x = (i * 137 + Math.sin(t * 0.013) * 40) % W;
       const y = ((H + 60) - (t * 0.6 + i * 50) % (H + 80));
       const r = 3 + (i % 4);
-      ctx.fillStyle = 'rgba(180, 220, 255, 0.18)';
+      ctx.fillStyle = 'rgba(180, 220, 255, 0.22)';
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 0.6;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)'; ctx.lineWidth = 0.6;
       ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
     }
+
+    // 6) Glass tank vignette — slight darker edges
+    const vg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.4, W/2, H/2, Math.max(W,H)*0.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   }
 
   function drawFood(f) {
