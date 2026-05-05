@@ -13,14 +13,17 @@
     --cyan: #9cd6ff;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg-1); color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; height: 100%; overflow: hidden; }
+  html { background: var(--bg-1); }
+  html, body { margin: 0; padding: 0; color: #fff; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; height: 100%; overflow: hidden; }
+  /* body MUST stay transparent and have no stacking context, otherwise the
+     z-index: -2 background image gets hidden behind it. */
   body {
+    background: transparent;
     height: 100vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
     padding: 20px 16px;
     box-sizing: border-box;
-    position: relative;
   }
 
   /* ---- Painted background — real <img> element so it's obvious if it loads ---- */
