@@ -70,18 +70,16 @@
     }
   }
 
-  // ----- Admin: wipe all leaderboard collections -----
-  // Requires the caller to first sign in with an account whose email matches
-  // the one allowed in your Firestore rules (allow delete: if request.auth.token.email == 'X').
-  // Returns { ok: true, deleted: N } on success or { ok: false, error: '...' } on failure.
-  async function adminSignInAndWipe(email, password) {
+  // ----- Admin: wipe all leaderboard collections (passcode-gated, no auth) -----
+  // Change this string whenever you want to rotate the passcode. The Firestore
+  // rules need to allow delete from anyone (allow delete: if true;) for this
+  // to work — security is purely obscurity (passcode + hidden URL).
+  const ADMIN_PASSCODE = 'bloowipe-2026';
+
+  async function adminWipeWithPasscode(passcode) {
+    if (passcode !== ADMIN_PASSCODE) return { ok: false, error: 'Wrong passcode.' };
     const fb = await loadFirebase();
     if (!fb) return { ok: false, error: 'Firebase failed to load' };
-    try {
-      await fb.signInWithEmailAndPassword(fb.auth, email, password);
-    } catch (e) {
-      return { ok: false, error: 'Sign-in failed: ' + (e.code || e.message) };
-    }
     let total = 0;
     for (const game of Object.keys(GAMES)) {
       try {
@@ -94,9 +92,7 @@
         return { ok: false, error: 'Delete failed on ' + game + ': ' + (e.code || e.message), partial: total };
       }
     }
-    // Wipe local cache too so the page doesn't show stale entries
     for (const g of Object.keys(GAMES)) _local.save(g, []);
-    try { await fb.signOut(fb.auth); } catch (_) {}
     return { ok: true, deleted: total };
   }
 
@@ -308,6 +304,6 @@
     GAMES,
     getUsername, setUsername, promptUsername, ensureUsername,
     submitScore, getScores, getCumulative,
-    adminSignInAndWipe,
+    adminWipeWithPasscode,
   };
 })(window);

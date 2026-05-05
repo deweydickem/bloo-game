@@ -142,11 +142,9 @@
   <div class="admin-overlay" id="adminOverlay">
     <div class="admin-modal" role="dialog" aria-modal="true">
       <h2>⚠️ Admin: Wipe leaderboard</h2>
-      <p>This permanently deletes EVERY score across all 3 games. Sign in with the admin account email/password configured in Firebase Auth.</p>
-      <label>Admin email</label>
-      <input type="email" id="adminEmail" autocomplete="email" placeholder="you@example.com" />
-      <label>Password</label>
-      <input type="password" id="adminPass" autocomplete="current-password" placeholder="••••••••" />
+      <p>This permanently deletes EVERY score across all 3 games. Enter the admin passcode.</p>
+      <label>Passcode</label>
+      <input type="password" id="adminPass" autocomplete="off" placeholder="••••••••" />
       <div class="status" id="adminStatus"></div>
       <div class="row">
         <button class="cancel" id="adminCancel">CANCEL</button>
@@ -262,15 +260,14 @@
     renderTabs();
     renderBoard();
 
-    // ---- Admin wipe panel (hidden behind #admin hash) ----
+    // ---- Admin wipe panel (hidden behind #admin hash, passcode-gated) ----
     const adminOverlay = document.getElementById('adminOverlay');
     const adminStatus  = document.getElementById('adminStatus');
-    const adminEmail   = document.getElementById('adminEmail');
     const adminPass    = document.getElementById('adminPass');
     function checkHash() {
       if (location.hash === '#admin') {
         adminOverlay.classList.add('show');
-        setTimeout(() => adminEmail.focus(), 50);
+        setTimeout(() => adminPass.focus(), 50);
       } else {
         adminOverlay.classList.remove('show');
       }
@@ -280,15 +277,14 @@
     document.getElementById('adminCancel').addEventListener('click', () => {
       location.hash = '';
       adminStatus.textContent = ''; adminStatus.className = 'status';
-      adminEmail.value = ''; adminPass.value = '';
+      adminPass.value = '';
     });
-    document.getElementById('adminWipe').addEventListener('click', async () => {
-      const email = adminEmail.value.trim();
-      const pass  = adminPass.value;
-      if (!email || !pass) { adminStatus.textContent = 'Enter email + password.'; adminStatus.className = 'status err'; return; }
+    async function runWipe() {
+      const code = adminPass.value;
+      if (!code) { adminStatus.textContent = 'Enter the passcode.'; adminStatus.className = 'status err'; return; }
       if (!confirm('This will permanently delete every score. Continue?')) return;
       adminStatus.textContent = 'Wiping…'; adminStatus.className = 'status';
-      const r = await BlooLB.adminSignInAndWipe(email, pass);
+      const r = await BlooLB.adminWipeWithPasscode(code);
       if (r.ok) {
         adminStatus.textContent = 'Deleted ' + r.deleted + ' scores. Reloading…';
         adminStatus.className = 'status ok';
@@ -297,7 +293,9 @@
         adminStatus.textContent = r.error + (r.partial ? ' (deleted ' + r.partial + ' before failing)' : '');
         adminStatus.className = 'status err';
       }
-    });
+    }
+    document.getElementById('adminWipe').addEventListener('click', runWipe);
+    adminPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') runWipe(); });
   </script>
 </body>
 </html>
