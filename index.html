@@ -141,6 +141,11 @@
   .thumb-platformer { background: linear-gradient(180deg, #2a134a 0%, #0f0820 100%); }
   .thumb-runner     { background: linear-gradient(180deg, #1a0e30 0%, #2a134a 60%, #ff5cb8 250%); }
   .thumb-tower      { background: linear-gradient(180deg, #1a0e30 0%, #2a1845 60%, #c038ff 250%); }
+  .thumb-tank       { background: radial-gradient(circle at 50% 50%, #2a3055 0%, #0a1030 70%); }
+  .scene-tank .bubble { position: absolute; border-radius: 50%; background: rgba(180,220,255,0.25); border: 1px solid rgba(255,255,255,0.4); animation: bobLight 3s ease-in-out infinite; }
+  .scene-tank .baby { position: absolute; bottom: 24px; left: 30%; height: 56px; transform: translateX(-50%); filter: drop-shadow(0 0 14px rgba(140, 200, 255, 0.6)); }
+  .scene-tank .adult { position: absolute; bottom: 18px; right: 24%; height: 84px; filter: drop-shadow(0 0 16px rgba(255, 140, 220, 0.6)); }
+  .scene-tank .food { position: absolute; height: 18px; filter: drop-shadow(0 0 10px rgba(156, 214, 255, 0.7)); animation: bobLight 1.6s ease-in-out infinite; }
 
   /* Painted-asset scenes inside each thumb */
   .scene { position: absolute; inset: 0; }
@@ -335,6 +340,32 @@
         <div class="play-row">
           <span class="meta">Bloo&nbsp;·&nbsp;Tower Defense</span>
           <span class="play">PLAY ▸</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="tank.html" aria-label="Open the Bloo Tank">
+      <div class="thumb thumb-tank">
+        <div class="scene scene-tank">
+          <div class="bubble" style="left: 12%; bottom: 30%; width: 12px; height: 12px;"></div>
+          <div class="bubble" style="left: 22%; bottom: 60%; width: 8px; height: 8px; animation-delay: .6s;"></div>
+          <div class="bubble" style="left: 80%; bottom: 50%; width: 14px; height: 14px; animation-delay: 1s;"></div>
+          <div class="bubble" style="left: 65%; bottom: 75%; width: 6px; height: 6px; animation-delay: .3s;"></div>
+          <img class="baby" src="sprites/td/hero/blue_spirit.png" alt="" aria-hidden="true">
+          <img class="adult" src="sprites/td/hero/blue_spirit.png" alt="" aria-hidden="true">
+          <img class="food" src="sprites/td/ui/ui_currency_orb.png" alt="" aria-hidden="true" style="left: 50%; top: 30%;">
+          <img class="food" src="sprites/td/ui/ui_currency_orb.png" alt="" aria-hidden="true" style="left: 70%; top: 50%; animation-delay: .4s;">
+        </div>
+      </div>
+      <div class="body">
+        <div class="title-row">
+          <h2 class="game-title">Bloo Tank</h2>
+          <span class="badge new">NEW</span>
+        </div>
+        <p class="desc">Idle aquarium. Tap to drop food, watch your Bloos grow from eggs into glowing elders. Comes back to find more.</p>
+        <div class="play-row">
+          <span class="meta">Bloo&nbsp;·&nbsp;Cozy</span>
+          <span class="play">OPEN ▸</span>
         </div>
       </div>
     </a>

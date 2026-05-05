@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0716" />
+<title>Bloo Tank — Bloo Arcade</title>
+<style>
+  html, body { margin:0; padding:0; background:#0a0716; color:#fff; font-family: system-ui, -apple-system, sans-serif; height:100%; overflow:hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  #wrap { position:fixed; inset:0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #btn-back, #btn-mute, #btn-reset {
+    position: fixed; top: max(14px, env(safe-area-inset-top));
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    color: #fff; font-size: 12px; letter-spacing: .5px; font-weight: 600;
+    text-decoration: none; cursor: pointer; z-index: 11;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #btn-back  { left: max(14px, env(safe-area-inset-left)); }
+  #btn-mute  { right: max(14px, env(safe-area-inset-right)); width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: 18px; display:flex; align-items:center; justify-content:center; }
+  #btn-reset { right: calc(max(14px, env(safe-area-inset-right)) + 48px); }
+  #hud {
+    position: fixed; top: max(64px, calc(env(safe-area-inset-top) + 56px));
+    left: max(14px, env(safe-area-inset-left));
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.45);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    color: #fff; font-size: 12px; letter-spacing: .5px;
+    z-index: 10;
+  }
+  #hud b { color: #ff8de0; }
+  #tip {
+    position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(20, 8, 40, 0.55); border: 1.5px solid rgba(255, 92, 184, 0.35);
+    color: rgba(255,255,255,0.75); font-size: 11px; letter-spacing: .8px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    pointer-events: none; z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<a id="btn-back" href="index.html">‹ MENU</a>
+<button id="btn-reset" title="Reset tank">RESET</button>
+<div id="btn-mute" title="Mute (M)">🔊</div>
+<div id="hud"><b id="popCount">0</b> bloos · <b id="elderCount">0</b> elders</div>
+<div id="tip">tap anywhere to drop food</div>
+
+<script>
+(() => {
+  // ============================================================================
+  // CANVAS + RESIZE
+  // ============================================================================
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    W = Math.floor(r.width);
+    H = Math.floor(r.height);
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  // ============================================================================
+  // ASSETS
+  // ============================================================================
+  const ASSET_LIST = {
+    bg:    'bg.jpg',
+    bloo:  'sprites/td/hero/blue_spirit.png',
+    egg:   'sprites/td/ui/ui_gem.png',
+    food:  'sprites/td/ui/ui_currency_orb.png',
+    coin:  'sprites/td/misc/coin.png',
+  };
+  const A = {};
+  let loaded = 0;
+  for (const [k, src] of Object.entries(ASSET_LIST)) {
+    const img = new Image();
+    img.onload = img.onerror = () => { loaded++; };
+    img.src = src;
+    A[k] = img;
+  }
+  function ready() { return loaded >= Object.keys(ASSET_LIST).length; }
+  function ok(k) { return A[k] && A[k].width; }
+
+  // ============================================================================
+  // AUDIO (procedural, soft)
+  // ============================================================================
+  const Audio = (() => {
+    let actx = null, master = null, muted = false;
+    try { muted = localStorage.getItem('bloo.muted') === '1'; } catch(_) {}
+    function ensure(){
+      if (typeof window === 'undefined') return null;
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      if (!actx) { actx = new AC(); master = actx.createGain(); master.gain.value = muted ? 0 : 0.32; master.connect(actx.destination); }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+    addEventListener('keydown', ensure, { once: true });
+    addEventListener('pointerdown', ensure, { once: true });
+    addEventListener('touchstart', ensure, { once: true });
+    function setMuted(m){ muted = m; if (master) master.gain.value = muted ? 0 : 0.32; try { localStorage.setItem('bloo.muted', muted ? '1' : '0'); } catch(_){} }
+    function isMuted(){ return muted; }
+    function tone(f, dur, type, opts={}){
+      const c = ensure(); if (!c || muted) return;
+      const t = c.currentTime; const o = c.createOscillator(); const g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (opts.freqEnd) o.frequency.exponentialRampToValueAtTime(Math.max(40, opts.freqEnd), t + dur);
+      const peak = opts.gain ?? 0.10;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+    }
+    return {
+      ensure, setMuted, isMuted,
+      drop()   { tone(880, 0.06, 'sine', { freqEnd: 440, gain: 0.05 }); },
+      eat()    { tone(540, 0.08, 'triangle', { freqEnd: 720, gain: 0.07 }); },
+      grow()   { [523, 659, 784].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',{gain:0.10}), i*80)); },
+      evolve() { [523, 659, 784, 1047, 1319].forEach((f,i)=>setTimeout(()=>tone(f,0.20,'sine',{gain:0.10}), i*90)); },
+      egg()    { tone(660, 0.12, 'sine', { freqEnd: 990, gain: 0.07 }); },
+    };
+  })();
+  const muteBtn = document.getElementById('btn-mute');
+  function refreshMute(){ muteBtn.textContent = Audio.isMuted() ? '🔇' : '🔊'; }
+  refreshMute();
+  muteBtn.addEventListener('click', () => { Audio.setMuted(!Audio.isMuted()); refreshMute(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM') { Audio.setMuted(!Audio.isMuted()); refreshMute(); } });
+
+  // ============================================================================
+  // STATE
+  // ============================================================================
+  // Stages and the food required to advance to the next.
+  // egg → baby (5) → teen (15) → adult (40) → elder (100)
+  const STAGE_NAMES = ['egg', 'baby', 'teen', 'adult', 'elder'];
+  const STAGE_FOOD  = [5, 15, 40, 100, 0]; // 0 = max stage
+  const STAGE_SIZE  = [22, 36, 56, 78, 110]; // visual size in px
+  const STAGE_GLOW  = [4, 8, 12, 18, 28];
+  const STAGE_TINT  = [
+    { r:160, g:200, b:255 },  // egg-ish soft
+    { r:140, g:200, b:255 },  // baby
+    { r:120, g:180, b:240 },  // teen
+    { r: 90, g:160, b:235 },  // adult
+    { r: 80, g:200, b:255 },  // elder (more cyan)
+  ];
+
+  const STORAGE_KEY = 'bloo.tank.state';
+  const SAVE_INTERVAL = 3000; // ms
+
+  let bloos = [];   // {id, x, y, vx, vy, stage, food, bobPhase, facing, eyeBlink, mood}
+  let foods = [];   // {x, y, vy, eaten, age}
+  let particles = [];
+  let nextBlooId = 1;
+  let lastSave = 0;
+  let lastEggSpawnAt = 0;
+
+  function spawnBloo(stage = 0, x, y) {
+    const xx = x ?? (60 + Math.random() * Math.max(100, W - 120));
+    const yy = y ?? (140 + Math.random() * Math.max(100, H - 280));
+    bloos.push({
+      id: nextBlooId++,
+      x: xx, y: yy,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.3,
+      stage,
+      food: 0,
+      bobPhase: Math.random() * Math.PI * 2,
+      facing: Math.random() < 0.5 ? -1 : 1,
+      eyeBlink: 0,
+      mood: 1.0,
+    });
+  }
+
+  function loadOrInit() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (_) {}
+    if (saved && Array.isArray(saved.bloos)) {
+      bloos = saved.bloos.map(b => ({
+        ...b,
+        bobPhase: Math.random() * Math.PI * 2,
+        eyeBlink: 0,
+        // re-randomize position only if absent (preserves continuity)
+        x: typeof b.x === 'number' ? b.x : 100,
+        y: typeof b.y === 'number' ? b.y : 100,
+      }));
+      nextBlooId = saved.nextBlooId || (Math.max(0, ...bloos.map(b => b.id)) + 1);
+      lastEggSpawnAt = saved.lastEggSpawnAt || 0;
+
+      // Time elapsed since last save → trickle of passive food + eggs
+      const elapsed = Math.max(0, Date.now() - (saved.lastSaved || Date.now()));
+      const elapsedHours = elapsed / (1000 * 60 * 60);
+      // 1 passive food per Bloo per hour, distributed evenly
+      const passive = Math.floor(elapsedHours * Math.max(1, bloos.length));
+      for (let i = 0; i < passive && bloos.length; i++) {
+        const b = bloos[Math.floor(Math.random() * bloos.length)];
+        if (STAGE_FOOD[b.stage] === 0) continue;
+        b.food++;
+        if (b.food >= STAGE_FOOD[b.stage]) {
+          b.food = 0;
+          if (b.stage < STAGE_NAMES.length - 1) b.stage++;
+        }
+      }
+      // Elders may have laid up to 1 egg per ~3 hours of off-time
+      const elders = bloos.filter(b => b.stage === STAGE_NAMES.length - 1).length;
+      const eggsToLay = Math.min(8, Math.floor(elders * elapsedHours / 3));
+      for (let i = 0; i < eggsToLay && bloos.length < 12; i++) spawnBloo(0);
+    } else {
+      // Fresh tank — start with 2 babies + 1 egg so there's something to do
+      spawnBloo(1);
+      spawnBloo(1);
+      spawnBloo(0);
+    }
+  }
+
+  function saveState() {
+    try {
+      const state = {
+        bloos: bloos.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, stage: b.stage, food: b.food, facing: b.facing })),
+        nextBlooId,
+        lastEggSpawnAt,
+        lastSaved: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (_) {}
+  }
+
+  function resetTank() {
+    if (!confirm('Reset the tank? You will lose all your Bloos.')) return;
+    bloos = [];
+    foods = [];
+    particles = [];
+    nextBlooId = 1;
+    lastEggSpawnAt = 0;
+    spawnBloo(1); spawnBloo(1); spawnBloo(0);
+    saveState();
+  }
+  document.getElementById('btn-reset').addEventListener('click', resetTank);
+
+  // ============================================================================
+  // INPUT — tap to drop food
+  // ============================================================================
+  function clientToCanvas(e) {
+    const rect = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+  }
+  function dropFoodAt(x, y) {
+    foods.push({ x, y, vy: 0.3, eaten: false, age: 0 });
+    Audio.drop();
+    // sparkle burst at the drop
+    for (let i = 0; i < 5; i++) particles.push({
+      x, y, vx: (Math.random()-0.5)*1.6, vy: (Math.random()-0.5)*1.6, life: 22, color: '#9cd6ff'
+    });
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    Audio.ensure();
+    const p = clientToCanvas(e);
+    dropFoodAt(p.x, p.y);
+    e.preventDefault();
+  });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // ============================================================================
+  // UPDATE
+  // ============================================================================
+  let animT = 0;
+  function update() {
+    animT++;
+
+    // Eggs may hatch into babies on their own after enough food
+    // (handled in the food-eating loop below)
+
+    // Move and steer Bloos
+    for (const b of bloos) {
+      // Find a food target — only the not-yet-fully-grown go for it
+      let target = null;
+      if (STAGE_FOOD[b.stage] > 0) {
+        let bestD = Infinity;
+        for (const f of foods) {
+          if (f.eaten) continue;
+          const dx = f.x - b.x, dy = f.y - b.y;
+          const d = dx*dx + dy*dy;
+          if (d < bestD) { bestD = d; target = f; }
+        }
+      }
+      const speedFactor = 0.05 + (b.stage === 0 ? 0.0 : 0.02 * b.stage);
+      if (target) {
+        const dx = target.x - b.x, dy = target.y - b.y;
+        const d = Math.hypot(dx, dy) || 1;
+        b.vx += (dx / d) * 0.08;
+        b.vy += (dy / d) * 0.08;
+        b.facing = dx >= 0 ? 1 : -1;
+      } else {
+        // gentle wander
+        if (Math.random() < 0.01) { b.vx += (Math.random()-0.5) * 0.4; b.vy += (Math.random()-0.5) * 0.3; }
+      }
+      // Friction (moves like underwater)
+      b.vx *= 0.94; b.vy *= 0.94;
+      // Soft floating bias upward at higher stages
+      b.vy += -0.005 * b.stage;
+      // Apply
+      b.x += b.vx; b.y += b.vy;
+      // Bob
+      b.bobPhase += 0.04 + speedFactor;
+      // Bounds
+      const sz = STAGE_SIZE[b.stage];
+      const margin = sz * 0.55;
+      if (b.x < margin) { b.x = margin; b.vx = Math.abs(b.vx); b.facing = 1; }
+      if (b.x > W - margin) { b.x = W - margin; b.vx = -Math.abs(b.vx); b.facing = -1; }
+      if (b.y < 90 + margin) { b.y = 90 + margin; b.vy = Math.abs(b.vy); }
+      if (b.y > H - margin - 40) { b.y = H - margin - 40; b.vy = -Math.abs(b.vy); }
+      // Eye blink
+      if (b.eyeBlink > 0) b.eyeBlink--;
+      else if (Math.random() < 0.005) b.eyeBlink = 6;
+    }
+
+    // Move food
+    for (const f of foods) {
+      if (f.eaten) continue;
+      f.age++;
+      f.vy += 0.012;
+      if (f.vy > 1.2) f.vy = 1.2;
+      f.y += f.vy;
+      f.x += Math.sin(f.age * 0.04) * 0.15;
+      // Settle near bottom
+      if (f.y > H - 24) { f.y = H - 24; f.vy *= -0.5; }
+    }
+
+    // Bloo eats food
+    for (const f of foods) {
+      if (f.eaten) continue;
+      for (const b of bloos) {
+        if (STAGE_FOOD[b.stage] === 0) continue; // elder doesn't eat for growth
+        const sz = STAGE_SIZE[b.stage];
+        const dx = f.x - b.x, dy = f.y - b.y;
+        if (dx*dx + dy*dy < (sz*0.45) ** 2) {
+          f.eaten = true;
+          b.food++;
+          Audio.eat();
+          for (let i = 0; i < 6; i++) particles.push({
+            x: f.x, y: f.y, vx: (Math.random()-0.5)*2.2, vy: (Math.random()-0.5)*2.2 - 0.4, life: 24, color: '#ffd54a'
+          });
+          if (b.food >= STAGE_FOOD[b.stage]) {
+            b.food = 0;
+            if (b.stage < STAGE_NAMES.length - 1) {
+              b.stage++;
+              Audio.grow();
+              for (let i = 0; i < 18; i++) particles.push({
+                x: b.x, y: b.y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 36, color: '#ff5cb8'
+              });
+              if (b.stage === STAGE_NAMES.length - 1) Audio.evolve();
+            }
+          }
+          break;
+        }
+      }
+    }
+    // Cull eaten/old food
+    for (let i = foods.length - 1; i >= 0; i--) {
+      if (foods[i].eaten || foods[i].age > 60 * 60) foods.splice(i, 1); // 60s lifespan if uneaten
+    }
+
+    // Elders periodically lay an egg
+    const elders = bloos.filter(b => b.stage === STAGE_NAMES.length - 1);
+    if (elders.length && bloos.length < 12) {
+      // 1 egg per elder roughly every 25s
+      const interval = Math.max(60 * 12, 60 * 25 / elders.length);
+      if (animT - lastEggSpawnAt > interval) {
+        const parent = elders[Math.floor(Math.random() * elders.length)];
+        spawnBloo(0, parent.x + (Math.random()-0.5)*40, parent.y + 20);
+        lastEggSpawnAt = animT;
+        Audio.egg();
+        for (let i = 0; i < 14; i++) particles.push({
+          x: parent.x, y: parent.y + 20, vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3 - 0.3, life: 30, color: '#9cd6ff'
+        });
+      }
+    }
+
+    // Particles
+    for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; }
+    for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
+
+    // Save periodically
+    if (Date.now() - lastSave > SAVE_INTERVAL) { saveState(); lastSave = Date.now(); }
+
+    // HUD
+    document.getElementById('popCount').textContent = bloos.length;
+    document.getElementById('elderCount').textContent = elders.length;
+  }
+
+  // ============================================================================
+  // DRAW
+  // ============================================================================
+  function drawBg() {
+    if (ok('bg')) {
+      // cover-fit
+      const img = A.bg;
+      const ratio = Math.max(W / img.width, H / img.height);
+      const dw = img.width * ratio, dh = img.height * ratio;
+      const dx = (W - dw) / 2, dy = (H - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } else {
+      ctx.fillStyle = '#1a0e3a'; ctx.fillRect(0, 0, W, H);
+    }
+    // soft tank overlay (deep blue tint)
+    ctx.fillStyle = 'rgba(20, 8, 60, 0.35)';
+    ctx.fillRect(0, 0, W, H);
+    // a few drifting bubbles to sell the aquarium feel
+    for (let i = 0; i < 18; i++) {
+      const t = animT * 0.3 + i * 23;
+      const x = (i * 137 + Math.sin(t * 0.013) * 40) % W;
+      const y = ((H + 60) - (t * 0.6 + i * 50) % (H + 80));
+      const r = 3 + (i % 4);
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(180, 220, 255, 0.18)';
+      ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
+    }
+  }
+
+  function drawFood(f) {
+    const wob = Math.sin(f.age * 0.1) * 1.5;
+    ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = 12;
+    if (ok('food')) {
+      ctx.drawImage(A.food, f.x - 11, f.y - 11 + wob, 22, 22);
+    } else {
+      ctx.fillStyle = '#9cd6ff';
+      ctx.beginPath(); ctx.arc(f.x, f.y + wob, 8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function drawBloo(b) {
+    const sz = STAGE_SIZE[b.stage];
+    const bob = Math.sin(b.bobPhase) * (2 + b.stage);
+    const cx = b.x, cy = b.y + bob;
+    const tint = STAGE_TINT[b.stage];
+    const glow = STAGE_GLOW[b.stage];
+
+    // Egg stage = small gem-like crystal
+    if (b.stage === 0) {
+      ctx.shadowColor = '#9cd6ff'; ctx.shadowBlur = glow;
+      if (ok('egg')) {
+        ctx.drawImage(A.egg, cx - sz/2, cy - sz/2, sz, sz);
+      } else {
+        ctx.fillStyle = '#9cd6ff';
+        ctx.beginPath(); ctx.arc(cx, cy, sz/2, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      // hatch progress ring
+      drawProgressRing(cx, cy, sz/2 + 5, b.food / STAGE_FOOD[b.stage]);
+      return;
+    }
+
+    // Baby/Teen/Adult/Elder: painted Bloo, scaled by stage, with stage-specific glow + tint
+    if (ok('bloo')) {
+      const img = A.bloo;
+      // Crop bottom 12% to remove pink ground aura that bleeds out of the source
+      const sw = img.width, sh = Math.floor(img.height * 0.88);
+      const targetH = sz * 1.2;
+      const ar = sw / sh;
+      const targetW = targetH * ar;
+      // Outer glow
+      ctx.shadowColor = `rgba(${tint.r},${tint.g},${tint.b},0.85)`;
+      ctx.shadowBlur = glow;
+      // Elder: extra pink rim
+      if (b.stage === 4) {
+        ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = glow + 6;
+      }
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (b.facing < 0) ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, sw, sh, -targetW/2, -targetH/2, targetW, targetH);
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    } else {
+      // fallback circle
+      ctx.shadowColor = `rgb(${tint.r},${tint.g},${tint.b})`;
+      ctx.shadowBlur = glow;
+      ctx.fillStyle = `rgb(${tint.r},${tint.g},${tint.b})`;
+      ctx.beginPath(); ctx.arc(cx, cy, sz/2, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    // Growth ring (only for non-elders)
+    if (STAGE_FOOD[b.stage] > 0) {
+      drawProgressRing(cx, cy + sz * 0.55, sz * 0.4, b.food / STAGE_FOOD[b.stage]);
+    } else {
+      // Elder: a few drifting sparkles
+      if (animT % 6 === 0) particles.push({
+        x: cx + (Math.random()-0.5)*sz, y: cy + (Math.random()-0.5)*sz*0.6,
+        vx: (Math.random()-0.5)*0.3, vy: -Math.random()*0.4 - 0.2, life: 40, color: '#ff8de0'
+      });
+    }
+  }
+
+  function drawProgressRing(cx, cy, r, pct) {
+    pct = Math.max(0, Math.min(1, pct));
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    if (pct > 0) {
+      ctx.strokeStyle = '#ff8de0';
+      ctx.shadowColor = '#ff5cb8'; ctx.shadowBlur = 8;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * pct); ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / 36);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame() {
+    if (!ready()) {
+      ctx.fillStyle = '#0a0716'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('Loading…', W/2, H/2);
+      requestAnimationFrame(frame);
+      return;
+    }
+    update();
+    drawBg();
+    // Sort bloos by y so closer (bigger y) draw last (in-front feel)
+    const sorted = bloos.slice().sort((a, b) => a.y - b.y);
+    for (const b of sorted) drawBloo(b);
+    for (const f of foods) drawFood(f);
+    drawParticles();
+    requestAnimationFrame(frame);
+  }
+
+  // ============================================================================
+  // BOOT
+  // ============================================================================
+  resize();
+  loadOrInit();
+  // Save on unload too
+  window.addEventListener('beforeunload', saveState);
+  window.addEventListener('pagehide', saveState);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
+  frame();
+})();
+</script>
+</body>
+</html>
