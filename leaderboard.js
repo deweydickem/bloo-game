@@ -69,11 +69,13 @@
   // intentionally allowed. The filter targets actual slurs, sexual-violence
   // language, and aggressive compound insults.
   const BLOCKED_TERMS = [
+    // racial slurs (re-added after a real-world incident)
+    'nigger', 'nigga', 'niggur', 'niggar',
     // sexual violence
     'rapist', 'rape', 'raping', 'rapes',
     // pedophilia
     'pedo', 'pedophile', 'kiddiefuck',
-    // aggressive compound insults the user explicitly listed
+    // aggressive compound insults
     'fucker', 'cocksucker', 'motherfucker', 'cumdumpster',
     // self-harm encouragement
     'killyourself', 'killyaself', 'kys',
