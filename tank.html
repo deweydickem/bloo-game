@@ -286,6 +286,10 @@
   let lastCrystalAt = 0;
   let selectedBlooId = null;
 
+  const FEED_COOLDOWN_MS = 10000;   // 10s per Bloo
+  const TAP_FEED_COOLDOWN_MS = 800; // 0.8s between tap-water-to-feed drops
+  let lastTapFeedAt = 0;
+
   function spawnBloo(stage = 0, x, y, species) {
     const xx = x ?? (60 + Math.random() * Math.max(100, W - 120));
     const yy = y ?? (140 + Math.random() * Math.max(100, H - 280));
@@ -297,6 +301,7 @@
       bobPhase: Math.random() * Math.PI * 2,
       facing: Math.random() < 0.5 ? -1 : 1,
       eyeBlink: 0,
+      lastFedAt: 0,
     });
   }
 
@@ -310,6 +315,7 @@
         hunger: typeof b.hunger === 'number' ? b.hunger : 100,
         bobPhase: Math.random() * Math.PI * 2,
         eyeBlink: 0,
+        lastFedAt: b.lastFedAt || 0,
       }));
       crystals = saved.crystals ?? 50;
       nextBlooId = saved.nextBlooId || (Math.max(0, ...bloos.map(b => b.id)) + 1);
@@ -345,7 +351,7 @@
   function saveState() {
     try {
       const state = {
-        bloos: bloos.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, stage: b.stage, food: b.food, hunger: b.hunger, facing: b.facing, species: b.species })),
+        bloos: bloos.map(b => ({ id: b.id, x: b.x, y: b.y, vx: b.vx, vy: b.vy, stage: b.stage, food: b.food, hunger: b.hunger, facing: b.facing, species: b.species, lastFedAt: b.lastFedAt || 0 })),
         crystals, nextBlooId, lastSaved: Date.now(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -448,6 +454,7 @@
     infoSellPrice.textContent = '+' + price;
     infoSell.dataset.price = price;
     infoOverlay.classList.add('show');
+    refreshFeedButton();
   }
   infoSell.addEventListener('click', () => {
     if (selectedBlooId == null) return;
@@ -463,14 +470,42 @@
     closeAllModals();
     updateHUD();
   });
+  function feedCooldownLeft(b) {
+    if (!b || !b.lastFedAt) return 0;
+    return Math.max(0, FEED_COOLDOWN_MS - (Date.now() - b.lastFedAt));
+  }
+  function refreshFeedButton() {
+    if (selectedBlooId == null) return;
+    const b = bloos.find(x => x.id === selectedBlooId);
+    if (!b) return;
+    const left = feedCooldownLeft(b);
+    if (left > 0) {
+      infoFeed.disabled = true;
+      infoFeed.style.opacity = '0.55';
+      infoFeed.style.cursor = 'not-allowed';
+      infoFeed.textContent = `WAIT ${Math.ceil(left/1000)}s`;
+    } else {
+      infoFeed.disabled = false;
+      infoFeed.style.opacity = '';
+      infoFeed.style.cursor = 'pointer';
+      infoFeed.textContent = 'FEED 🍬';
+    }
+  }
+  // Tick the feed-button cooldown label every 250ms while the modal is open
+  setInterval(() => {
+    if (infoOverlay.classList.contains('show')) refreshFeedButton();
+  }, 250);
+
   infoFeed.addEventListener('click', () => {
     if (selectedBlooId == null) return;
     const b = bloos.find(x => x.id === selectedBlooId);
     if (!b) return;
+    if (feedCooldownLeft(b) > 0) { Audio.nope(); return; }
     // Drop one food right above the selected Bloo
     foods.push({ x: b.x, y: b.y - 60, vy: 0.3, eaten: false, age: 0 });
+    b.lastFedAt = Date.now();
     Audio.drop();
-    closeAllModals();
+    refreshFeedButton();
   });
 
   // ============================================================================
@@ -498,10 +533,16 @@
     if (hit) {
       openInfo(hit.id);
     } else {
-      // drop food
-      foods.push({ x: p.x, y: p.y, vy: 0.3, eaten: false, age: 0 });
-      Audio.drop();
-      for (let i = 0; i < 5; i++) particles.push({ x: p.x, y: p.y, vx:(Math.random()-0.5)*1.6, vy:(Math.random()-0.5)*1.6, life: 22, color: '#9cd6ff' });
+      // Throttle tap-water-to-feed so users can't spam-rain food
+      const now = Date.now();
+      if (now - lastTapFeedAt < TAP_FEED_COOLDOWN_MS) { Audio.nope(); }
+      else if (foods.length >= 12) { Audio.nope(); }   // hard cap
+      else {
+        foods.push({ x: p.x, y: p.y, vy: 0.3, eaten: false, age: 0 });
+        lastTapFeedAt = now;
+        Audio.drop();
+        for (let i = 0; i < 5; i++) particles.push({ x: p.x, y: p.y, vx:(Math.random()-0.5)*1.6, vy:(Math.random()-0.5)*1.6, life: 22, color: '#9cd6ff' });
+      }
     }
     e.preventDefault();
   });

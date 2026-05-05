@@ -144,6 +144,8 @@
 
   function onPointerDown(e){
     Audio.ensure();
+    // If the run is over and the fade-in completed, ANY tap restarts.
+    if (gameOver && gameOverT > 25) { reset(); e.preventDefault && e.preventDefault(); return; }
     const p = e.touches ? e.touches[0] : e;
     dragX = dragStartX = p.clientX;
     dragActive = true; dragMoved = 0;
@@ -209,7 +211,7 @@
   // Camera distance traveled
   let camY = 0;
   let scrollSpeed = 4.4;    // base scroll (was 3.8) — runners feel uncomfortable
-  const CROWD_CAP = 80;     // was 200 — multipliers can't trivially snowball
+  const CROWD_CAP = 35;     // tighter cap — keeps multipliers from feeling pointless
   let distance = 0;         // total distance traveled
   let bestDistance = 0;
   try { bestDistance = parseInt(localStorage.getItem('bloo.runner.best') || '0', 10); } catch(_) {}
@@ -271,7 +273,7 @@
     enemyShots.length = 0;
     boss = null;
     leaderX = LANE_X + LANE_W / 2;
-    spawnClones(3);
+    spawnClones(5);
     camY = 0; distance = 0; scrollSpeed = 4.4; score = 0;
     nextGateY = -200; nextEnemyY = -600; nextBossDistance = 800;
     gameOver = false; gameOverT = 0; steerInput = 0;
@@ -302,26 +304,26 @@
   }
   function pickGateOp(forcePositive) {
     const r = Math.random();
-    // Late-game gates have more bad halves: 25% → 50% by 2000m
-    const badBias = Math.min(0.25, distance / 8000);  // up to +25%
-    const goodCutoff = 0.40 - badBias;
-    const addCutoff  = 0.60 - badBias;
-    const subCutoff  = 0.85;
-    if (forcePositive || r < goodCutoff) {
-      // Multiplier — now mostly ×2 (rare ×3) to keep growth manageable
-      const m = Math.random() < 0.85 ? 2 : 3;
-      return { type: 'mul', value: m, label: '×' + m, color: '#5fe87a', score: 1 };
+    // Late-game gates have more bad halves: ~20% → 50% by 3000m
+    const badBias = Math.min(0.20, distance / 10000);
+    // Multipliers are RARE now (was 40%, now 18%). Most positive gates are +adds.
+    const mulCutoff  = 0.18;
+    const addCutoff  = 0.55 - badBias;
+    const subCutoff  = 0.80;
+    if (forcePositive || r < mulCutoff) {
+      // Only ×2 — no more ×3 snowball
+      return { type: 'mul', value: 2, label: '×2', color: '#5fe87a', score: 1 };
     } else if (r < addCutoff) {
-      // Additive +2..+8 (was +3..+10) — smaller bonuses
-      const a = 2 + Math.floor(Math.random() * 7);
+      // Additive +2..+6 — small steady bonuses
+      const a = 2 + Math.floor(Math.random() * 5);
       return { type: 'add', value: a, label: '+' + a, color: '#9cd6ff', score: 1 };
     } else if (r < subCutoff) {
-      // Subtract −6..−20 — bigger losses
-      const a = 6 + Math.floor(Math.random() * 15);
+      // Subtract −5..−15
+      const a = 5 + Math.floor(Math.random() * 11);
       return { type: 'sub', value: a, label: '−' + a, color: '#ff5c8a', score: -1 };
     } else {
-      // Divide ÷2..÷4
-      const d = 2 + Math.floor(Math.random() * 3);
+      // Divide ÷2..÷3
+      const d = 2 + Math.floor(Math.random() * 2);
       return { type: 'div', value: d, label: '÷' + d, color: '#ff5c8a', score: -1 };
     }
   }
@@ -649,8 +651,8 @@
       if (gates[i].screenY > H + 80) gates.splice(i, 1);
     }
 
-    // Restart key
-    if (keys['KeyR']) reset();
+    // Restart key — R, Space, or Enter
+    if (gameOver && gameOverT > 25 && (keys['KeyR'] || keys['Space'] || keys['Enter'])) reset();
   }
 
   function endGame() {
@@ -984,8 +986,21 @@
       ctx.fillText('SCORE  ·  best ' + bestScore, W/2, H*0.50);
       ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '14px system-ui';
       ctx.fillText('Distance: ' + Math.floor(distance) + ' m  ·  best ' + bestDistance + ' m', W/2, H*0.55);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui';
-      ctx.fillText('PRESS R TO PLAY AGAIN', W/2, H*0.62);
+      // Pulsing call to action button
+      const pulse = 0.85 + Math.sin(gameOverT * 0.08) * 0.15;
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#ff5cb8';
+      ctx.shadowColor = '#ff8de0'; ctx.shadowBlur = 18;
+      const btnW = 220, btnH = 44, btnX = W/2 - btnW/2, btnY = H*0.62;
+      roundRect(btnX, btnY, btnW, btnH, 22);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('TAP TO PLAY AGAIN', W/2, btnY + 28);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px system-ui';
+      ctx.fillText('or press R / SPACE', W/2, H*0.62 + 64);
     }
   }
 
